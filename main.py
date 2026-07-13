@@ -1,52 +1,64 @@
 """
-Simple Tapo Light Control Script
----------------------------------
-Install:  pip install tapo
-Usage:    python tapo_light_test.py
+Xbox Controller → Tapo Light
+------------------------------
+Install:  pip install tapo pygame
+Controls: Y = light on, A = light off, B = quit
 """
 
 import asyncio
 from tapo import ApiClient
 from config import TAPO_EMAIL, TAPO_PASSWORD, LIGHT_IP
+from xbox_controller import XboxController
+
 
 async def main():
-    # Connect to the light
+    # Connect to light
+    print("Connecting to light...")
     client = ApiClient(TAPO_EMAIL, TAPO_PASSWORD)
-
-    # Use the right handler for your bulb:
-    #   .l510e()  → dimmable white bulb
-    #   .l530()   → multicolour bulb
-    #   .l630()   → multicolour bulb (newer)
     device = await client.l530(LIGHT_IP)
+    print("Light connected!")
 
-    # 1. Get current device info
-    info = await device.get_device_info()
-    print(f"Device: {info.model}  (nickname: {info.nickname})")
-    print(f"Currently on: {info.device_on}")
+    # Set up controller
+    controller = XboxController()
+    running = True
+    action = None
 
-    # 2. Turn on
-    print("\n→ Turning light ON...")
-    await device.on()
+    def turn_on():
+        nonlocal action
+        action = "on"
 
-    # 3. Set brightness to 50 %
-    print("→ Setting brightness to 50 %...")
-    await device.set_brightness(50)
+    def turn_off():
+        nonlocal action
+        action = "off"
 
-    # 4. Set colour (hue 240 = blue, saturation 100 %)
-    print("→ Setting colour to blue...")
-    await device.set_hue_saturation(240, 100)
-    await asyncio.sleep(2)
+    def quit_app():
+        nonlocal running
+        running = False
 
-    # 5. Switch to warm white (colour temperature in Kelvin)
-    print("→ Switching to warm white (2700 K)...")
-    await device.set_color_temperature(2700)
-    await asyncio.sleep(2)
+    controller.on_button("y", turn_on)
+    controller.on_button("a", turn_off)
+    controller.on_button("b", quit_app)
 
-    # 6. Turn off
-    print("→ Turning light OFF...")
-    await device.off()
+    print("\nReady!  Y = on, A = off, B = quit\n")
 
-    print("\n✓ All done — your Tapo light is working!")
+    try:
+        while running:
+            controller.update()
+
+            if action == "on":
+                await device.on()
+                print("Light ON")
+            elif action == "off":
+                await device.off()
+                print("Light OFF")
+            action = None
+
+            await asyncio.sleep(0.05)
+    except KeyboardInterrupt:
+        pass
+
+    controller.close()
+    print("Done.")
 
 
 if __name__ == "__main__":
