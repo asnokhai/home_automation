@@ -1,4 +1,7 @@
-notes.txt
+./notes.txt
+./config.py
+
+.idea
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
