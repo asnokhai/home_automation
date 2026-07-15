@@ -2,6 +2,7 @@
 Tapo light controller wrapper.
 """
 
+import asyncio
 from tapo import ApiClient
 
 
@@ -38,25 +39,28 @@ class TapoController:
             await self._apply_mode(device)
             print(f"{name} ON ({'night' if self.night_mode else 'day'})")
 
+    async def _on_with_mode(self, device):
+        await device.on()
+        await self._apply_mode(device)
+
     async def all_on(self):
         """Turn all lights on in current mode."""
-        for name, device in self._lights.items():
-            await device.on()
-            await self._apply_mode(device)
+        await asyncio.gather(*(self._on_with_mode(d) for d in self._lights.values()))
         print(f"All lights ON ({'night' if self.night_mode else 'day'})")
 
     async def all_off(self):
         """Turn all lights off."""
-        for name, device in self._lights.items():
-            await device.off()
+        await asyncio.gather(*(d.off() for d in self._lights.values()))
         print("All lights OFF")
+
+    async def _apply_mode_if_on(self, device):
+        info = await device.get_device_info()
+        if info.device_on:
+            await self._apply_mode(device)
 
     async def toggle_mode(self):
         """Toggle between night and day mode. Applies to all lights that are currently on."""
         self.night_mode = not self.night_mode
         mode = "night" if self.night_mode else "day"
-        for name, device in self._lights.items():
-            info = await device.get_device_info()
-            if info.device_on:
-                await self._apply_mode(device)
+        await asyncio.gather(*(self._apply_mode_if_on(d) for d in self._lights.values()))
         print(f"Mode: {mode}")
