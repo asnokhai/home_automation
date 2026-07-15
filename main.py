@@ -5,8 +5,7 @@ Controls:
   A / B / X / Y   → Toggle individual lights
   LB              → All lights on
   RB              → All lights off
-  Start           → All lights red
-  Back            → Quit
+  Start           → Toggle night/day mode
 """
 
 import asyncio
@@ -30,7 +29,6 @@ async def main():
 
     # Set up controller
     controller = XboxController()
-    running = True
     action = None
 
     def make_toggle(name):
@@ -47,19 +45,18 @@ async def main():
 
     controller.on_button("a", make_toggle("Kitchen"))
     controller.on_button("b", make_toggle("Bathroom"))
-    controller.on_button("x", make_toggle("Living Room"))
-    controller.on_button("y", make_toggle("Vibe"))
+    controller.on_button("y", make_toggle("Living Room"))
+    controller.on_button("x", make_toggle("Vibe"))
     controller.on_button("lb", set_action("all_on"))
     controller.on_button("rb", set_action("all_off"))
-    controller.on_button("start", set_action("all_red"))
-    controller.on_button("back", set_action("quit"))
+    controller.on_button("start", set_action("toggle_mode"))
 
     print("\nReady!")
     print("  A=Kitchen  B=Bathroom  X=Living Room  Y=Vibe")
-    print("  LB=All on  RB=All off  Start=Red  Back=Quit\n")
+    print("  LB=All on  RB=All off  Start=Night/Day mode\n")
 
     try:
-        while running:
+        while True:
             controller.update()
 
             if action:
@@ -70,10 +67,8 @@ async def main():
                         await tapo.all_on()
                     elif action[0] == "all_off":
                         await tapo.all_off()
-                    elif action[0] == "all_red":
-                        await tapo.all_red()
-                    elif action[0] == "quit":
-                        running = False
+                    elif action[0] == "toggle_mode":
+                        await tapo.toggle_mode()
                 except Exception as e:
                     print(f"  ⚠ Error: {e}")
                 action = None
