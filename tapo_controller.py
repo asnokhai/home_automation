@@ -19,13 +19,13 @@ class TapoController:
         print(f"  {name} connected ({ip})")
 
     async def _apply_mode(self, device):
-        """Apply current mode settings to a light."""
+        """Apply current mode settings to a light. Also turns it on."""
         if self.night_mode:
-            await device.set_brightness(100)
             await device.set_hue_saturation(0, 100)
-        else:
             await device.set_brightness(100)
+        else:
             await device.set_color_temperature(4000)
+            await device.set_brightness(100)
 
     async def toggle(self, name):
         """Toggle a single light on/off, respecting current mode."""
@@ -35,12 +35,10 @@ class TapoController:
             await device.off()
             print(f"{name} OFF")
         else:
-            await device.on()
             await self._apply_mode(device)
             print(f"{name} ON ({'night' if self.night_mode else 'day'})")
 
     async def _on_with_mode(self, device):
-        await device.on()
         await self._apply_mode(device)
 
     async def all_on(self):
