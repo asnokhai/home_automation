@@ -1,6 +1,6 @@
 import pygame
 import sys
-
+from config import BUTTON_MAPPING
 
 class XboxController:
     def __init__(self):
@@ -21,11 +21,8 @@ class XboxController:
         """Register a callback for a button press.
         Names: a, b, x, y, lb, rb, start, back
         """
-        mapping = {
-            "a": 0, "b": 1, "x": 2, "y": 3,
-            "lb": 4, "rb": 5, "back": 6, "start": 7,
-        }
-        button_id = mapping.get(button_name.lower())
+
+        button_id = BUTTON_MAPPING.get(button_name.lower())
         if button_id is None:
             raise ValueError(f"Unknown button: {button_name}")
         self._button_callbacks[button_id] = callback
