@@ -1,10 +1,3 @@
-"""
-Xbox Controller → Tapo Light
-------------------------------
-Install:  pip install tapo pygame
-Controls: Y = light on, A = light off, B = quit
-"""
-
 import asyncio
 from tapo import ApiClient
 from config import TAPO_EMAIL, TAPO_PASSWORD, LIGHT_IP
