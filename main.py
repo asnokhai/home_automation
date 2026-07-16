@@ -16,7 +16,6 @@ Terminal commands:
 import asyncio
 import sys
 from config import (
-    TAPO_EMAIL, TAPO_PASSWORD,
     KITCHEN_LIGHT_IP, BATHROOM_LIGHT_IP,
     LIVING_ROOM_LIGHT_IP, VIBE_LIGHT_IP,
 )
@@ -96,12 +95,8 @@ async def controller_loop(controller, tapo):
 
 async def main():
     print("Connecting to lights...")
-    tapo = TapoController(TAPO_EMAIL, TAPO_PASSWORD)
-    await tapo.add_light("Kitchen", KITCHEN_LIGHT_IP)
-    await tapo.add_light("Bathroom", BATHROOM_LIGHT_IP)
-    await tapo.add_light("Living Room", LIVING_ROOM_LIGHT_IP)
-    await tapo.add_light("Vibe", VIBE_LIGHT_IP)
-
+    tapo = TapoController()
+    await tapo.connect_to_lights()
     controller = XboxController()
 
     print("\nReady!")

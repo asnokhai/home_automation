@@ -5,14 +5,23 @@ Tapo light controller wrapper.
 import asyncio
 from tapo import ApiClient
 
+from config import TAPO_EMAIL, TAPO_PASSWORD, KITCHEN_LIGHT_IP, BATHROOM_LIGHT_IP, LIVING_ROOM_LIGHT_IP, VIBE_LIGHT_IP
+
 
 class TapoController:
-    def __init__(self, email, password):
-        self._client = ApiClient(email, password)
+    def __init__(self):
+        self._client = ApiClient(TAPO_EMAIL, TAPO_PASSWORD)
         self._lights = {}
         self.night_mode = False
 
-    async def add_light(self, name, ip):
+    async def connect_to_lights(self):
+        """Connect to all lights. Call this after creating the instance."""
+        await self._add_light("Kitchen", KITCHEN_LIGHT_IP)
+        await self._add_light("Bathroom", BATHROOM_LIGHT_IP)
+        await self._add_light("Living Room", LIVING_ROOM_LIGHT_IP)
+        await self._add_light("Vibe", VIBE_LIGHT_IP)
+
+    async def _add_light(self, name, ip):
         """Connect and register a light by name."""
         device = await self._client.l530(ip)
         self._lights[name] = device
