@@ -19,6 +19,7 @@ from config import (
     KITCHEN_LIGHT_IP, BATHROOM_LIGHT_IP,
     LIVING_ROOM_LIGHT_IP, VIBE_LIGHT_IP,
 )
+from sound_player import SoundPlayer
 from xbox_controller import XboxController
 from tapo_controller import TapoController
 
@@ -33,35 +34,36 @@ COMMANDS = {
 }
 
 
-async def handle_action(action, tapo):
+async def handle_action(action, tapo_controller, sound_player):
     """Execute a single action tuple."""
     try:
         if action[0] == "toggle":
-            await tapo.toggle(action[1])
+            await tapo_controller.toggle(action[1])
         elif action[0] == "all_on":
-            await tapo.all_on()
+            await tapo_controller.all_on()
         elif action[0] == "all_off":
-            await tapo.all_off()
+            await tapo_controller.all_off()
         elif action[0] == "toggle_mode":
-            await tapo.toggle_mode()
+            await tapo_controller.toggle_mode()
+        sound_player.play()
     except Exception as e:
         print(f"  ⚠ Error: {e}")
 
 
-async def stdin_reader(tapo):
+async def stdin_reader(tapo_controller, sound_player):
     """Read terminal input in a non-blocking loop."""
     loop = asyncio.get_event_loop()
     while True:
         line = await loop.run_in_executor(None, sys.stdin.readline)
         cmd = line.strip().lower()
         if cmd in COMMANDS:
-            await handle_action(COMMANDS[cmd], tapo)
+            await handle_action(COMMANDS[cmd], tapo_controller, sound_player)
         elif cmd:
             print(f"  Unknown command: {cmd}")
             print(f"  Available: {', '.join(COMMANDS.keys())}")
 
 
-async def controller_loop(controller, tapo):
+async def controller_loop(controller, tapo_controller, sound_player):
     """Poll the Xbox controller for button presses."""
     action = None
 
@@ -88,15 +90,17 @@ async def controller_loop(controller, tapo):
     while True:
         controller.update()
         if action:
-            await handle_action(action, tapo)
+            await handle_action(action, tapo_controller, sound_player)
             action = None
         await asyncio.sleep(0.05)
 
 
 async def main():
     print("Connecting to lights...")
-    tapo = TapoController()
-    await tapo.connect_to_lights()
+    tapo_controller = TapoController()
+    await tapo_controller.connect_to_lights()
+
+    sound_player = SoundPlayer()
     controller = XboxController()
 
     print("\nReady!")
@@ -106,8 +110,8 @@ async def main():
 
     try:
         await asyncio.gather(
-            controller_loop(controller, tapo),
-            stdin_reader(tapo),
+            controller_loop(controller, tapo_controller, sound_player),
+            stdin_reader(tapo_controller, sound_player),
         )
     except KeyboardInterrupt:
         pass
