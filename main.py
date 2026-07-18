@@ -37,6 +37,7 @@ COMMANDS = {
 async def handle_action(action, tapo_controller, sound_player):
     """Execute a single action tuple."""
     try:
+        sound_player.play()
         if action[0] == "toggle":
             await tapo_controller.toggle(action[1])
         elif action[0] == "all_on":
@@ -45,7 +46,6 @@ async def handle_action(action, tapo_controller, sound_player):
             await tapo_controller.all_off()
         elif action[0] == "toggle_mode":
             await tapo_controller.toggle_mode()
-        sound_player.play()
     except Exception as e:
         print(f"  ⚠ Error: {e}")
 
