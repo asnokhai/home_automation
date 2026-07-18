@@ -15,10 +15,6 @@ Terminal commands:
 
 import asyncio
 import sys
-from config import (
-    KITCHEN_LIGHT_IP, BATHROOM_LIGHT_IP,
-    LIVING_ROOM_LIGHT_IP, VIBE_LIGHT_IP,
-)
 from sound_player import SoundPlayer
 from xbox_controller import XboxController
 from tapo_controller import TapoController
