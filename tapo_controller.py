@@ -12,6 +12,7 @@ class TapoController:
     def __init__(self):
         self._client = ApiClient(TAPO_EMAIL, TAPO_PASSWORD)
         self._lights = {}
+        self._light_ips = {}
         self.night_mode = False
 
     async def connect_to_lights(self):
@@ -25,7 +26,20 @@ class TapoController:
         """Connect and register a light by name."""
         device = await self._client.l530(ip)
         self._lights[name] = device
+        self._light_ips[name] = ip
         print(f"  {name} connected ({ip})")
+
+    async def _with_reconnect(self, name, action):
+        """Run an async action on a device, reconnecting once on auth failure."""
+        device = self._lights[name]
+        try:
+            return await action(device)
+        except Exception:
+            ip = self._light_ips[name]
+            device = await self._client.l530(ip)
+            self._lights[name] = device
+            print(f"  {name} reconnected ({ip})")
+            return await action(device)
 
     async def _apply_mode(self, device):
         """Apply current mode settings to a light. Also turns it on."""
@@ -38,36 +52,42 @@ class TapoController:
 
     async def toggle(self, name):
         """Toggle a single light on/off, respecting current mode."""
-        device = self._lights[name]
-        info = await device.get_device_info()
+        info = await self._with_reconnect(name, lambda d: d.get_device_info())
         if info.device_on:
-            await device.off()
+            await self._with_reconnect(name, lambda d: d.off())
             print(f"{name} OFF")
         else:
-            await self._apply_mode(device)
+            await self._with_reconnect(name, lambda d: self._apply_mode(d))
             print(f"{name} ON ({'night' if self.night_mode else 'day'})")
-
-    async def _on_with_mode(self, device):
-        await self._apply_mode(device)
 
     async def all_on(self):
         """Turn all lights on in current mode."""
-        await asyncio.gather(*(self._on_with_mode(d) for d in self._lights.values()))
+        await asyncio.gather(*(
+            self._with_reconnect(n, lambda d: self._apply_mode(d))
+            for n in self._lights
+        ))
         print(f"All lights ON ({'night' if self.night_mode else 'day'})")
 
     async def all_off(self):
         """Turn all lights off."""
-        await asyncio.gather(*(d.off() for d in self._lights.values()))
+        await asyncio.gather(*(
+            self._with_reconnect(n, lambda d: d.off())
+            for n in self._lights
+        ))
         print("All lights OFF")
-
-    async def _apply_mode_if_on(self, device):
-        info = await device.get_device_info()
-        if info.device_on:
-            await self._apply_mode(device)
 
     async def toggle_mode(self):
         """Toggle between night and day mode. Applies to all lights that are currently on."""
         self.night_mode = not self.night_mode
         mode = "night" if self.night_mode else "day"
-        await asyncio.gather(*(self._apply_mode_if_on(d) for d in self._lights.values()))
+
+        async def apply_if_on(device):
+            info = await device.get_device_info()
+            if info.device_on:
+                await self._apply_mode(device)
+
+        await asyncio.gather(*(
+            self._with_reconnect(n, apply_if_on)
+            for n in self._lights
+        ))
         print(f"Mode: {mode}")
