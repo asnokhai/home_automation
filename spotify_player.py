@@ -1,6 +1,6 @@
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
-from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET
+from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_DEVICE_NAME
 
 class SpotifyPlayer:
     def __init__(self):
@@ -11,8 +11,18 @@ class SpotifyPlayer:
             scope="user-modify-playback-state user-read-playback-state"
         ))
 
-    def play(self, song_name):
-        """Search for a song by name and play it on the active device."""
+    def pause(self):
+        """Pause playback."""
+        self._sp.pause_playback()
+        print("Paused")
+
+    def resume(self):
+        """Resume playback."""
+        self._sp.start_playback()
+        print("Resumed")
+
+    def play_song(self, song_name):
+        """Search for a song and play it on the dev kit."""
         results = self._sp.search(q=song_name, type="track", limit=1)
         tracks = results["tracks"]["items"]
         if not tracks:
@@ -20,15 +30,21 @@ class SpotifyPlayer:
             return
 
         track = tracks[0]
-        devices = self._sp.devices()["devices"]
-        if not devices:
-            print("No Spotify devices found. Open Spotify somewhere first.")
+        device_id = self._get_device_id()
+        if not device_id:
+            print(f"Device '{SPOTIFY_DEVICE_NAME}' not found.")
             return
 
-        device_id = devices[0]["id"]
+        self._sp.transfer_playback(device_id, force_play=False)
         self._sp.start_playback(device_id=device_id, uris=[track["uri"]])
-        print(f"Playing: {track['name']} – {track['artists'][0]['name']} on {devices[0]['name']}")
+        print(f"Playing: {track['name']} – {track['artists'][0]['name']}")
+
+    def _get_device_id(self):
+        """Find the dev kit's device ID by name."""
+        for d in self._sp.devices()["devices"]:
+            if d["name"] == SPOTIFY_DEVICE_NAME:
+                return d["id"]
 
 if __name__ == "__main__":
     player = SpotifyPlayer()
-    player.play("Afterlife - Avenged Sevenfold")
+    player.play_song("Afterlife - Avenged Sevenfold")
