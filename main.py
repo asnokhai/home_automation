@@ -21,10 +21,10 @@ COMMANDS = {
 BUTTON_MAP = {
     "a":     ("toggle", "Kitchen"),
     "b":     ("toggle", "Bathroom"),
+    "y": ("toggle", "Living Room"),
     "x": ("toggle", "Vibe"),
-    "y":     ("toggle", "Living Room"),
-    "lb":    ("all_on",),
-    "rb":    ("all_off",),
+    "rb":    ("all_on",),
+    "lb":    ("all_off",),
     "start": ("toggle_mode",),
 }
 
@@ -40,6 +40,7 @@ async def dispatch(action, tapo, sound):
             await tapo.all_on()
         elif cmd == "all_off":
             await tapo.all_off()
+            sound.say("all_off")
         elif cmd == "toggle_mode":
             await tapo.toggle_mode()
     except Exception as e:
