@@ -1,16 +1,5 @@
 """
 Xbox Controller / Terminal → Tapo Lights
-------------------------------------------
-Controller:
-  A / B / X / Y   → Toggle individual lights
-  LB              → All lights on
-  RB              → All lights off
-  Start           → Toggle night/day mode
-
-Terminal commands:
-  kitchen / bathroom / living / vibe → Toggle light
-  on / off                           → All lights on/off
-  mode                               → Toggle night/day
 """
 
 import asyncio
@@ -29,75 +18,61 @@ COMMANDS = {
     "mode":     ("toggle_mode",),
 }
 
+BUTTON_MAP = {
+    "a":     ("toggle", "Kitchen"),
+    "b":     ("toggle", "Bathroom"),
+    "x": ("toggle", "Vibe"),
+    "y":     ("toggle", "Living Room"),
+    "lb":    ("all_on",),
+    "rb":    ("all_off",),
+    "start": ("toggle_mode",),
+}
 
-async def handle_action(action, tapo_controller, sound_player):
-    """Execute a single action tuple."""
+
+async def dispatch(action, tapo, sound):
+    """Route an action tuple to the appropriate TapoController method."""
     try:
-        sound_player.play()
-        if action[0] == "toggle":
-            await tapo_controller.toggle(action[1])
-        elif action[0] == "all_on":
-            await tapo_controller.all_on()
-        elif action[0] == "all_off":
-            await tapo_controller.all_off()
-        elif action[0] == "toggle_mode":
-            await tapo_controller.toggle_mode()
+        sound.play()
+        cmd, *args = action
+        if cmd == "toggle":
+            await tapo.toggle(args[0])
+        elif cmd == "all_on":
+            await tapo.all_on()
+        elif cmd == "all_off":
+            await tapo.all_off()
+        elif cmd == "toggle_mode":
+            await tapo.toggle_mode()
     except Exception as e:
         print(f"  ⚠ Error: {e}")
 
 
-async def stdin_reader(tapo_controller, sound_player):
-    """Read terminal input in a non-blocking loop."""
+async def stdin_reader(handler):
+    """Read terminal input, passing recognized commands to handler."""
     loop = asyncio.get_event_loop()
     while True:
         line = await loop.run_in_executor(None, sys.stdin.readline)
         cmd = line.strip().lower()
         if cmd in COMMANDS:
-            await handle_action(COMMANDS[cmd], tapo_controller, sound_player)
+            await handler(COMMANDS[cmd])
         elif cmd:
             print(f"  Unknown command: {cmd}")
             print(f"  Available: {', '.join(COMMANDS.keys())}")
 
 
-async def controller_loop(controller, tapo_controller, sound_player):
-    """Poll the Xbox controller for button presses."""
-    action = None
-
-    def make_toggle(name):
-        def toggle():
-            nonlocal action
-            action = ("toggle", name)
-        return toggle
-
-    def set_action(act):
-        def handler():
-            nonlocal action
-            action = (act,)
-        return handler
-
-    controller.on_button("a", make_toggle("Kitchen"))
-    controller.on_button("b", make_toggle("Bathroom"))
-    controller.on_button("x", make_toggle("Living Room"))
-    controller.on_button("y", make_toggle("Vibe"))
-    controller.on_button("lb", set_action("all_on"))
-    controller.on_button("rb", set_action("all_off"))
-    controller.on_button("start", set_action("toggle_mode"))
-
-    while True:
-        controller.update()
-        if action:
-            await handle_action(action, tapo_controller, sound_player)
-            action = None
-        await asyncio.sleep(0.05)
-
-
 async def main():
     print("Connecting to lights...")
-    tapo_controller = TapoController()
-    await tapo_controller.connect_to_lights()
+    tapo = TapoController()
+    await tapo.connect_to_lights()
 
-    sound_player = SoundPlayer()
+    sound = SoundPlayer()
     controller = XboxController()
+
+    async def on_action(action):
+        await dispatch(action, tapo, sound)
+
+    for button, action in BUTTON_MAP.items():
+        controller.map_button(button, action)
+    controller.set_action_handler(on_action)
 
     print("\nReady!")
     print("  Controller: A=Kitchen  B=Bathroom  X=Living Room  Y=Vibe")
@@ -106,8 +81,8 @@ async def main():
 
     try:
         await asyncio.gather(
-            controller_loop(controller, tapo_controller, sound_player),
-            stdin_reader(tapo_controller, sound_player),
+            controller.run(),
+            stdin_reader(on_action),
         )
     except KeyboardInterrupt:
         pass
