@@ -9,7 +9,7 @@ import pygame
 from gtts import gTTS
 from pydub import AudioSegment
 
-SPEECH_DIR = "../resources/speech"
+SPEECH_DIR = "./resources/speech"
 
 PHRASES = {
     "kitchen_on":    "Kitchen on",
@@ -33,7 +33,7 @@ PHRASES = {
 class SoundPlayer:
     def __init__(self):
         pygame.mixer.init()
-        self._click = pygame.mixer.Sound("../resources/button-click-padded.wav")
+        self._click = pygame.mixer.Sound("./resources/button-click-padded.wav")
         self._speech = {}
         self._generate_missing()
         self._load_speech()
