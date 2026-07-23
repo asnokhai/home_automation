@@ -1,6 +1,7 @@
 notes.txt
 src/config.py
 resources/speech/
+.spotify_token_cache
 
 .idea
 

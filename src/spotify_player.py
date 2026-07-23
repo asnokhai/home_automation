@@ -5,11 +5,14 @@ from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_DEVICE_NAME
 class SpotifyPlayer:
     def __init__(self):
         self._sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-            client_id=SPOTIFY_CLIENT_ID,
-            client_secret=SPOTIFY_CLIENT_SECRET,
-            redirect_uri="http://127.0.0.1:8888/callback",
-            scope="user-modify-playback-state user-read-playback-state"
-        ))
+                client_id=SPOTIFY_CLIENT_ID,
+                client_secret=SPOTIFY_CLIENT_SECRET,
+                redirect_uri="http://127.0.0.1:8888/callback",
+                scope="user-modify-playback-state user-read-playback-state",
+                open_browser=False,
+                cache_path=".spotify_token_cache"
+            )
+        )
 
     def pause(self):
         """Pause playback."""
@@ -42,6 +45,7 @@ class SpotifyPlayer:
     def _get_device_id(self):
         """Find the dev kit's device ID by name."""
         for d in self._sp.devices()["devices"]:
+            print('Device Name:', d)
             if d["name"] == SPOTIFY_DEVICE_NAME:
                 return d["id"]
 
