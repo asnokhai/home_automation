@@ -24,6 +24,9 @@ PHRASES = {
     "all_off":       "All lights off",
     "mode_night":    "Night mode",
     "mode_day":      "Day mode",
+    "controller_mode_bluetooth": "Bluetooth Mode",
+    "controller_mode_lights": "Lights Mode",
+    "play_song": "Playing Song"
 }
 
 

@@ -13,6 +13,8 @@ POLL_INTERVAL = 0.05
 
 
 class XboxController:
+    MODES = ['controller_mode_lights', 'controller_mode_bluetooth']
+
     def __init__(self):
         pygame.init()
         pygame.joystick.init()
@@ -23,6 +25,22 @@ class XboxController:
         self._waiting = False
         self._last_reconnect = 0
         self._connect()
+
+        self._mode_index = 0
+        self._mode = self.MODES[0]
+
+    def cycle_mode(self):
+        self._mode_index = (self._mode_index + 1) % len(self.MODES)
+        self._mode = self.MODES[self._mode_index]
+
+        return self._mode
+
+    def set_button_maps(self, maps):
+        self._button_maps = maps
+
+    def _resolve_button(self, button_name):
+        mode_map = self._button_maps.get(self._mode, {})
+        return mode_map.get(button_name)
 
     def _connect(self):
         pygame.joystick.quit()
@@ -73,8 +91,9 @@ class XboxController:
             try:
                 for event in pygame.event.get():
                     if event.type == pygame.JOYBUTTONDOWN:
-                        action = self._button_actions.get(event.button)
-                        if action and self._on_action:
+                        button_name = BUTTON_MAPPING[event.button]
+                        action = self._resolve_button(button_name)
+                        if action:
                             await self._on_action(action)
                     elif event.type == pygame.JOYDEVICEREMOVED:
                         self._connected = False

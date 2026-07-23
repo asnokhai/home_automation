@@ -76,7 +76,7 @@ class TapoController:
         ))
         print("All lights OFF")
 
-    async def toggle_mode(self):
+    async def toggle_night_mode(self):
         """Toggle between night and day mode. Applies to all lights that are currently on."""
         self.night_mode = not self.night_mode
         mode = "night" if self.night_mode else "day"

@@ -4,7 +4,12 @@ Xbox Controller / Terminal → Tapo Lights
 
 import asyncio
 import sys
+
+from pygame._sdl2 import controller
+
+import spotify_player
 from sound_player import SoundPlayer
+from spotify_player import SpotifyPlayer
 from xbox_controller import XboxController
 from tapo_controller import TapoController
 
@@ -15,21 +20,33 @@ COMMANDS = {
     "vibe":     ("toggle", "Vibe"),
     "on":       ("all_on",),
     "off":      ("all_off",),
-    "mode":     ("toggle_mode",),
+    "lights mode":     ("toggle_night_mode",),
+    "controller mode":     ("cycle_controller_mode",),
+    "play":     ("bt_play_song",),
+    "pause":     ("bt_pause_song",),
+    "resume":     ("bt_resume_song",),
 }
 
-BUTTON_MAP = {
-    "a":     ("toggle", "Kitchen"),
-    "b":     ("toggle", "Bathroom"),
-    "y": ("toggle", "Living Room"),
-    "x": ("toggle", "Vibe"),
-    "rb":    ("all_on",),
-    "lb":    ("all_off",),
-    "start": ("toggle_mode",),
+BUTTON_MAPS = {
+    "lights_mode": {
+        "a":     ("toggle", "Kitchen"),
+        "b":     ("toggle", "Bathroom"),
+        "y":     ("toggle", "Living Room"),
+        "x":     ("toggle", "Vibe"),
+        "rb":    ("all_on",),
+        "lb":    ("all_off",),
+        "start": ("toggle_night_mode",),
+        "back":  ("cycle_controller_mode",),
+    },
+    "bluetooth_mode": {
+        "a":     ("bt_play_song",),
+        "x":     ("bt_pause_song",),
+        "b":     ("bt_resume_song",),
+    },
 }
 
 
-async def dispatch(action, tapo, sound):
+async def dispatch(action, tapo, sound, controller, spotify_player):
     """Route an action tuple to the appropriate TapoController method."""
     try:
         sound.play()
@@ -41,8 +58,18 @@ async def dispatch(action, tapo, sound):
         elif cmd == "all_off":
             await tapo.all_off()
             sound.say("all_off")
-        elif cmd == "toggle_mode":
-            await tapo.toggle_mode()
+        elif cmd == "toggle_night_mode":
+            await tapo.toggle_night_mode()
+        elif cmd == "cycle_controller_mode":
+            controller_mode = controller.cycle_mode()
+            sound.say(controller_mode)
+        elif cmd == "bt_play_song":
+            sound.say("play_song")
+            spotify_player.play_song("Afterlife - Avenged Sevenfold")
+        elif cmd == "bt_pause_song":
+            spotify_player.pause()
+        elif cmd == "bt_resume_song":
+            spotify_player.resume()
     except Exception as e:
         print(f"  ⚠ Error: {e}")
 
@@ -67,12 +94,12 @@ async def main():
 
     sound = SoundPlayer()
     controller = XboxController()
+    spotify_player = SpotifyPlayer()
 
     async def on_action(action):
-        await dispatch(action, tapo, sound)
+        await dispatch(action, tapo, sound, controller, spotify_player)
 
-    for button, action in BUTTON_MAP.items():
-        controller.map_button(button, action)
+    controller.set_button_maps(BUTTON_MAPS)
     controller.set_action_handler(on_action)
 
     print("\nReady!")
