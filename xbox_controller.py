@@ -29,6 +29,8 @@ class XboxController:
         self._mode_index = 0
         self._mode = self.MODES[0]
 
+        self.BUTTON_NAMES = {v: k for k, v in BUTTON_MAPPING.items()}
+
     def cycle_mode(self):
         self._mode_index = (self._mode_index + 1) % len(self.MODES)
         self._mode = self.MODES[self._mode_index]
@@ -91,7 +93,7 @@ class XboxController:
             try:
                 for event in pygame.event.get():
                     if event.type == pygame.JOYBUTTONDOWN:
-                        button_name = BUTTON_MAPPING[event.button]
+                        button_name = self.BUTTON_NAMES.get(event.button)
                         action = self._resolve_button(button_name)
                         if action:
                             await self._on_action(action)

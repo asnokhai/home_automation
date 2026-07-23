@@ -28,7 +28,7 @@ COMMANDS = {
 }
 
 BUTTON_MAPS = {
-    "lights_mode": {
+    "controller_mode_lights": {
         "a":     ("toggle", "Kitchen"),
         "b":     ("toggle", "Bathroom"),
         "y":     ("toggle", "Living Room"),
@@ -38,7 +38,7 @@ BUTTON_MAPS = {
         "start": ("toggle_night_mode",),
         "back":  ("cycle_controller_mode",),
     },
-    "bluetooth_mode": {
+    "controller_mode_bluetooth": {
         "a":     ("bt_play_song",),
         "x":     ("bt_pause_song",),
         "b":     ("bt_resume_song",),
