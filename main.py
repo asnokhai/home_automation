@@ -42,6 +42,7 @@ BUTTON_MAPS = {
         "a":     ("bt_play_song",),
         "x":     ("bt_pause_song",),
         "b":     ("bt_resume_song",),
+        "back": ("cycle_controller_mode",),
     },
 }
 
