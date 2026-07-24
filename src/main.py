@@ -9,6 +9,7 @@ from sound_player import SoundPlayer
 from spotify_player import SpotifyPlayer
 from xbox_controller import XboxController
 from tapo_controller import TapoController
+from bluetooth import Bluetooth
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -32,10 +33,11 @@ async def main():
     spotify = SpotifyPlayer()
     controller = XboxController()
     tapo = TapoController()
+    bluetooth = Bluetooth()
 
     await tapo.connect_to_lights()
 
-    actions = build_actions(tapo, controller, spotify)
+    actions = build_actions(tapo, controller, spotify, bluetooth)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
