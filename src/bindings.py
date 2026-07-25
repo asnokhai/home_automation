@@ -6,6 +6,7 @@ it in build_actions() below -- no keyword to invent, no dispatcher to edit.
 """
 
 import asyncio
+import sys
 from dataclasses import dataclass
 from functools import partial
 from typing import Callable
@@ -51,6 +52,7 @@ def build_actions(tapo, controller, spotify, bluetooth):
         "toggle_pause_resume_song":  Action(spotify.toggle_pause_resume),
         "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
+        "exit": Action(sys.exit),
     }
 
 
@@ -66,6 +68,7 @@ def build_command_map(actions):
         "lights mode":      actions["night_mode"],
         "controller mode":  actions["cycle_mode"],
         "toggle pause":     actions["toggle_pause_resume_song"],
+        "exit":             actions["exit"],
     }
 
 
@@ -83,15 +86,15 @@ def build_button_maps(actions):
             "back":  actions["cycle_mode"],
         },
         "controller_mode_bluetooth": {
-            "a":    actions["toggle_pause_resume_song"],
-            "y":    actions["toggle_speaker_connection"],
+            "a":     actions["toggle_pause_resume_song"],
+            "y":     actions["toggle_speaker_connection"],
             "start": actions["disconnect_xbox_controller"],
-            "back": actions["cycle_mode"],
-            "up": actions["play_song_1"],
-            "left": actions["play_song_2"],
+            "back":  actions["cycle_mode"],
+            "up":    actions["play_song_1"],
+            "left":  actions["play_song_2"],
             "right": actions["play_song_3"],
-            "down": actions["play_song_4"],
-            "lb": actions["decrease_volume"],
-            "rb": actions["increase_volume"],
+            "down":  actions["play_song_4"],
+            "lb":    actions["decrease_volume"],
+            "rb":    actions["increase_volume"],
         },
     }
