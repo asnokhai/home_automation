@@ -22,7 +22,7 @@ from typing import Any, Iterator
 from jeepney import DBusAddress, HeaderFields, MessageType, new_method_call
 from jeepney.io.blocking import open_dbus_connection
 
-from config import SPEAKERS_MAC_ADDRESS
+from config import SPEAKERS_MAC_ADDRESS, XBOX_CONTROLLER_MAC_ADDRESS
 
 __all__ = ["Bluetooth", "BluetoothError", "DeviceNotFound", "AdapterBlocked"]
 
@@ -237,6 +237,9 @@ class Bluetooth:
 
         print("Device is connected: ", self.is_connected(SPEAKERS_MAC_ADDRESS))
 
+    def disconnect_xbox_controller(self):
+        self.disconnect(XBOX_CONTROLLER_MAC_ADDRESS)
+        print("XBOX controller is connected: ", self.is_connected(XBOX_CONTROLLER_MAC_ADDRESS))
 
     # backwards-compatible alias
     paired_devices = devices
