@@ -46,6 +46,8 @@ def build_actions(tapo, controller, spotify, bluetooth):
         "play_song_2": Action(partial(spotify.play_song, "Holiday - Green Day"), say="play_song"),
         "play_song_3": Action(partial(spotify.play_song, "Automatic Sun - The Warning"), say="play_song"),
         "play_song_4": Action(partial(spotify.play_song, "Reason - Selah Sue"), say="play_song"),
+        "increase_volume": Action(spotify.increase_volume),
+        "decrease_volume": Action(spotify.decrease_volume),
         "toggle_pause_resume_song":  Action(spotify.toggle_pause_resume),
         "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
@@ -89,5 +91,7 @@ def build_button_maps(actions):
             "left": actions["play_song_2"],
             "right": actions["play_song_3"],
             "down": actions["play_song_4"],
+            "lb": actions["decrease_volume"],
+            "rb": actions["increase_volume"],
         },
     }

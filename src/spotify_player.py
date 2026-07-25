@@ -15,6 +15,7 @@ class SpotifyPlayer:
         )
 
         self._paused = True
+        self._volume_target = self._get_volume()
 
     def toggle_pause_resume(self):
         """Toggle pause/resume."""
@@ -42,7 +43,31 @@ class SpotifyPlayer:
         self._sp.transfer_playback(device_id, force_play=False)
         self._sp.start_playback(device_id=device_id, uris=[track["uri"]])
         self._paused = False
+        self._volume_target = self._get_volume()
         print(f"Playing: {track['name']} – {track['artists'][0]['name']}")
+
+    def increase_volume(self):
+        self._change_volume(5)
+
+    def decrease_volume(self):
+        self._change_volume(-5)
+
+    def _change_volume(self, delta):
+        """"Change the volume of the device by delta."""
+        playback = self._sp.current_playback()
+        if not playback:
+            return None
+        current = playback["device"]["volume_percent"]
+        if current is None:  # device doesn't report volume
+            return None
+
+        self._volume_target += delta
+        self._sp.volume(self._volume_target)
+        print("New volume:", self._volume_target)
+
+    def _get_volume(self):
+        """"Return the current volume of the device."""
+        return self._sp.current_playback()["device"]["volume_percent"]
 
     def _get_device_id(self):
         """Find the dev kit's device ID by name."""
