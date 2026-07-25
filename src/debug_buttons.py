@@ -16,3 +16,5 @@ while True:
         elif event.type == pygame.JOYAXISMOTION:
             if abs(event.value) > 0.2:
                 print(f"Axis {event.axis} = {event.value:.2f}")
+        elif event.type == pygame.JOYHATMOTION:
+            print(f"Hat {event.hat} = {event.value}")

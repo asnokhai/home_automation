@@ -6,14 +6,16 @@ Handles disconnects, reconnects, and async polling.
 import asyncio
 import time
 import pygame
-from config import BUTTON_MAPPING
 
 RECONNECT_INTERVAL = 2
 POLL_INTERVAL = 0.05
 
 
 class XboxController:
-    MODES = ['controller_mode_lights', 'controller_mode_bluetooth']
+    BUTTON_MAPPING = {
+        "a": 0, "b": 1, "x": 3, "y": 4,
+        "lb": 6, "rb": 7, "back": 10, "start": 11,
+    }
 
     def __init__(self):
         pygame.init()
@@ -26,22 +28,26 @@ class XboxController:
         self._last_reconnect = 0
         self._connect()
 
-        self._mode_index = 0
-        self._mode = self.MODES[0]
+        self._controller_modes_list = None
+        self._active_mode = None
+        self._active_mode_index = 0
 
-        self.BUTTON_NAMES = {v: k for k, v in BUTTON_MAPPING.items()}
+        self.BUTTON_NAMES = {v: k for k, v in self.BUTTON_MAPPING.items()}
 
     def cycle_mode(self):
-        self._mode_index = (self._mode_index + 1) % len(self.MODES)
-        self._mode = self.MODES[self._mode_index]
+        self._active_mode_index = (self._active_mode_index + 1) % len(self._controller_modes_list)
+        self._active_mode = self._controller_modes_list[self._active_mode_index]
 
-        return self._mode
+        return self._active_mode
 
     def set_button_maps(self, maps):
         self._button_maps = maps
+        self._controller_modes_list = list(maps.keys())
+        self._active_mode_index = 0
+        self._active_mode = self._controller_modes_list[0]
 
     def _resolve_button(self, button_name):
-        mode_map = self._button_maps.get(self._mode, {})
+        mode_map = self._button_maps.get(self._active_mode, {})
         return mode_map.get(button_name)
 
     def _connect(self):
@@ -70,7 +76,7 @@ class XboxController:
 
     def map_button(self, button_name, action):
         """Bind a button to an action tuple, e.g. ("toggle", "Kitchen")."""
-        button_id = BUTTON_MAPPING.get(button_name.lower())
+        button_id = self.BUTTON_MAPPING.get(button_name.lower())
         if button_id is None:
             raise ValueError(f"Unknown button: {button_name}")
         self._button_actions[button_id] = action
