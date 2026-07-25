@@ -17,15 +17,20 @@ class XboxController:
         "lb": 6, "rb": 7, "back": 10, "start": 11,
     }
 
+    # The D-pad is reported as a hat rather than as buttons, so these names
+    # are resolved separately from BUTTON_MAPPING.
+    DPAD_NAMES = ("up", "down", "left", "right")
+
     def __init__(self):
         pygame.init()
         pygame.joystick.init()
         self._joy = None
-        self._button_actions = {}   # button_id → action tuple
+        self._button_actions = {}   # button_id (or d-pad name) → action tuple
         self._on_action = None      # async callback
         self._connected = False
         self._waiting = False
         self._last_reconnect = 0
+        self._hat_state = (0, 0)    # last known D-pad position
         self._connect()
 
         self._controller_modes_list = None
@@ -50,6 +55,21 @@ class XboxController:
         mode_map = self._button_maps.get(self._active_mode, {})
         return mode_map.get(button_name)
 
+    @staticmethod
+    def _hat_directions(hat):
+        """Convert a hat (x, y) tuple into the set of directions held down."""
+        x, y = hat
+        directions = set()
+        if y > 0:
+            directions.add("up")
+        elif y < 0:
+            directions.add("down")
+        if x < 0:
+            directions.add("left")
+        elif x > 0:
+            directions.add("right")
+        return directions
+
     def _connect(self):
         pygame.joystick.quit()
         pygame.joystick.init()
@@ -59,6 +79,7 @@ class XboxController:
             self._joy.init()
             self._connected = True
             self._waiting = False
+            self._hat_state = (0, 0)
             print(f"Controller connected: {self._joy.get_name()}")
         else:
             if not self._waiting:
@@ -69,14 +90,23 @@ class XboxController:
                 self._waiting = True
             self._connected = False
             self._joy = None
+            self._hat_state = (0, 0)
 
     @property
     def connected(self):
         return self._connected
 
     def map_button(self, button_name, action):
-        """Bind a button to an action tuple, e.g. ("toggle", "Kitchen")."""
-        button_id = self.BUTTON_MAPPING.get(button_name.lower())
+        """Bind a button to an action tuple, e.g. ("toggle", "Kitchen").
+
+        Accepts face/shoulder button names as well as the D-pad directions
+        "up", "down", "left" and "right".
+        """
+        name = button_name.lower()
+        if name in self.DPAD_NAMES:
+            self._button_actions[name] = action
+            return
+        button_id = self.BUTTON_MAPPING.get(name)
         if button_id is None:
             raise ValueError(f"Unknown button: {button_name}")
         self._button_actions[button_id] = action
@@ -103,13 +133,25 @@ class XboxController:
                         action = self._resolve_button(button_name)
                         if action:
                             await self._on_action(action)
+                    elif event.type == pygame.JOYHATMOTION:
+                        previous = self._hat_directions(self._hat_state)
+                        current = self._hat_directions(event.value)
+                        self._hat_state = event.value
+                        # Fire only on newly pressed directions, so holding a
+                        # diagonal doesn't retrigger the direction already held.
+                        for name in sorted(current - previous):
+                            action = self._resolve_button(name)
+                            if action:
+                                await self._on_action(action)
                     elif event.type == pygame.JOYDEVICEREMOVED:
                         self._connected = False
                         self._joy = None
+                        self._hat_state = (0, 0)
                         print("Controller disconnected. Waiting for reconnect...")
             except pygame.error:
                 self._connected = False
                 self._joy = None
+                self._hat_state = (0, 0)
                 print("Controller lost. Waiting for reconnect...")
 
             await asyncio.sleep(POLL_INTERVAL)
