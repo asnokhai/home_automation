@@ -14,15 +14,16 @@ class SpotifyPlayer:
             )
         )
 
-    def pause(self):
-        """Pause playback."""
-        self._sp.pause_playback()
-        print("Paused")
+        self._paused = True
 
-    def resume(self):
-        """Resume playback."""
-        self._sp.start_playback()
-        print("Resumed")
+    def toggle_pause_resume(self):
+        """Toggle pause/resume."""
+        if self._paused:
+            self._sp.start_playback()
+            self._paused = False
+        else:
+            self._sp.pause_playback()
+            self._paused = True
 
     def play_song(self, song_name):
         """Search for a song and play it on the dev kit."""
@@ -40,6 +41,7 @@ class SpotifyPlayer:
 
         self._sp.transfer_playback(device_id, force_play=False)
         self._sp.start_playback(device_id=device_id, uris=[track["uri"]])
+        self._paused = False
         print(f"Playing: {track['name']} – {track['artists'][0]['name']}")
 
     def _get_device_id(self):

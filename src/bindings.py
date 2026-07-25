@@ -43,8 +43,7 @@ def build_actions(tapo, controller, spotify, bluetooth):
         "night_mode":  Action(tapo.toggle_night_mode),
         "cycle_mode":  Action(controller.cycle_mode, say=True),
         "play_song":   Action(partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song"),
-        "pause_song":  Action(spotify.pause),
-        "resume_song": Action(spotify.resume),
+        "toggle_pause_resume_song":  Action(spotify.toggle_pause_resume),
         "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
     }
@@ -61,9 +60,7 @@ def build_command_map(actions):
         "off":              actions["all_off"],
         "lights mode":      actions["night_mode"],
         "controller mode":  actions["cycle_mode"],
-        "play":             actions["play_song"],
-        "pause":            actions["pause_song"],
-        "resume":           actions["resume_song"],
+        "toggle pause":     actions["toggle_pause_resume_song"],
     }
 
 
@@ -82,9 +79,8 @@ def build_button_maps(actions):
         },
         "controller_mode_bluetooth": {
             "a":    actions["play_song"],
-            "x":    actions["pause_song"],
+            "x":    actions["toggle_pause_resume_song"],
             "y":    actions["toggle_speaker_connection"],
-            "b": actions["resume_song"],
             "start": actions["disconnect_xbox_controller"],
             "back": actions["cycle_mode"],
         },
