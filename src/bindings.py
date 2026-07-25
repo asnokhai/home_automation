@@ -10,9 +10,6 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Callable
 
-from src.bluetooth import Bluetooth
-
-
 @dataclass
 class Action:
     fn: Callable
@@ -48,7 +45,7 @@ def build_actions(tapo, controller, spotify, bluetooth):
         "play_song":   Action(partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song"),
         "pause_song":  Action(spotify.pause),
         "resume_song": Action(spotify.resume),
-        "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection()),
+        "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
     }
 
 
