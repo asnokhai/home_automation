@@ -8,8 +8,17 @@ import os
 import pygame
 from gtts import gTTS
 from pydub import AudioSegment
+from pydub.generators import WhiteNoise
+import os
 
 SPEECH_DIR = "./resources/speech"
+
+# Bluetooth speakers idle their amp between streams and clip the first
+# fraction of a second when audio resumes. A short burst of very quiet noise
+# in front of each clip wakes the speaker before the words start. Real noise
+# rather than digital silence: many speakers gate a silent stream anyway.
+WAKE_MS = 250
+WAKE_DBFS = -50
 
 PHRASES = {
     "kitchen_on":    "Kitchen on",
@@ -28,6 +37,15 @@ PHRASES = {
     "controller_mode_lights": "Lights Mode",
     "play_song": "Playing Song"
 }
+
+
+def _wake_padding(reference):
+    """Near-silent noise matching the reference clip's audio parameters."""
+    noise = WhiteNoise().to_audio_segment(duration=WAKE_MS, volume=WAKE_DBFS)
+    return (noise
+            .set_frame_rate(reference.frame_rate)
+            .set_channels(reference.channels)
+            .set_sample_width(reference.sample_width))
 
 
 class SoundPlayer:
@@ -50,7 +68,8 @@ class SoundPlayer:
             mp3_buf = io.BytesIO()
             gTTS(text).write_to_fp(mp3_buf)
             mp3_buf.seek(0)
-            AudioSegment.from_mp3(mp3_buf).export(path, format="wav")
+            speech = AudioSegment.from_mp3(mp3_buf)
+            (_wake_padding(speech) + speech).export(path, format="wav")
 
     def _load_speech(self):
         for key in PHRASES:
@@ -59,6 +78,7 @@ class SoundPlayer:
                 self._speech[key] = pygame.mixer.Sound(path)
 
         print(f"  Loaded {len(self._speech)} speech sounds")
+        print(os.path.abspath(SPEECH_DIR), os.listdir(SPEECH_DIR))
 
     def play(self):
         """Play the button click sound."""

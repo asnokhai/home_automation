@@ -50,6 +50,8 @@ def build_actions(tapo, controller, spotify, bluetooth):
         "increase_volume": Action(spotify.increase_volume),
         "decrease_volume": Action(spotify.decrease_volume),
         "toggle_pause_resume_song":  Action(spotify.toggle_pause_resume),
+        "restart_song": Action(spotify.restart_song),
+        "skip_song": Action(spotify.skip_song),
         "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
         "exit": Action(sys.exit),
@@ -88,6 +90,8 @@ def build_button_maps(actions):
         "controller_mode_bluetooth": {
             "a":     actions["toggle_pause_resume_song"],
             "y":     actions["toggle_speaker_connection"],
+            "x":     actions["restart_song"],
+            "b":     actions["skip_song"],
             "start": actions["disconnect_xbox_controller"],
             "back":  actions["cycle_mode"],
             "up":    actions["play_song_1"],

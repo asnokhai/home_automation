@@ -52,6 +52,12 @@ class SpotifyPlayer:
     def decrease_volume(self):
         self._change_volume(-5)
 
+    def restart_song(self):
+        self._sp.seek_track(0)
+
+    def skip_song(self):
+        self._sp.next_track()
+
     def _change_volume(self, delta):
         """"Change the volume of the device by delta."""
         playback = self._sp.current_playback()
