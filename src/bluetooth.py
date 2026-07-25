@@ -182,6 +182,7 @@ class Bluetooth:
         Blocks until BlueZ reports the connection established or failed. A
         device that is already connected is treated as success.
         """
+        print("Attempting to connect to device...")
         try:
             self._call(self.device_path(mac), _DEVICE_IFACE, "Connect",
                        timeout=timeout)
@@ -192,6 +193,7 @@ class Bluetooth:
 
     def disconnect(self, mac: str, timeout: float | None = None) -> None:
         """Disconnect a device."""
+        print("Attempting to disconnect from device...")
         try:
             self._call(self.device_path(mac), _DEVICE_IFACE, "Disconnect",
                        timeout=timeout)
@@ -229,9 +231,12 @@ class Bluetooth:
 
     def toggle_speaker_connection(self):
         if self.is_connected(SPEAKERS_MAC_ADDRESS):
-            self.connect(SPEAKERS_MAC_ADDRESS)
-        else:
             self.disconnect(SPEAKERS_MAC_ADDRESS)
+        else:
+            self.connect(SPEAKERS_MAC_ADDRESS)
+
+        print("Device is connected: ", self.is_connected(SPEAKERS_MAC_ADDRESS))
+
 
     # backwards-compatible alias
     paired_devices = devices
