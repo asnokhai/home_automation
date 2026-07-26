@@ -32,7 +32,7 @@ async def run_action(action: Action, sound):
         print(f"  ⚠ Error: {e}")
 
 
-def build_actions(tapo, controller, spotify, bluetooth):
+def build_actions(tapo, controller, spotify, bluetooth, phone):
     """Define every action once, bound directly to its class method."""
     return {
         "kitchen":     Action(partial(tapo.toggle, "Kitchen")),
@@ -55,6 +55,7 @@ def build_actions(tapo, controller, spotify, bluetooth):
         "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
         "exit": Action(sys.exit),
+        "toggle_instagram": Action(phone.toggle_instagram),
     }
 
 
@@ -100,5 +101,6 @@ def build_button_maps(actions):
             "down":  actions["play_song_4"],
             "lb":    actions["decrease_volume"],
             "rb":    actions["increase_volume"],
+            "L":     actions["toggle_instagram"]
         },
     }

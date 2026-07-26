@@ -15,6 +15,7 @@ class XboxController:
     BUTTON_MAPPING = {
         "a": 0, "b": 1, "x": 3, "y": 4,
         "lb": 6, "rb": 7, "back": 10, "start": 11,
+        "L": 13, "R": 14
     }
 
     # The D-pad is reported as a hat rather than as buttons, so these names
