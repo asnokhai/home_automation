@@ -107,6 +107,7 @@ def build_button_maps(actions):
         },
         "controller_mode_phone": {
             "a": actions["toggle_instagram"],
-            "L": actions["set_alarm"]
+            "L": actions["set_alarm"],
+            "back": actions["cycle_mode"],
         }
     }
