@@ -1,3 +1,5 @@
+import time
+
 import spotipy
 from spotipy.oauth2 import SpotifyOAuth
 from config import SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_DEVICE_NAME
@@ -57,6 +59,24 @@ class SpotifyPlayer:
 
     def skip_song(self):
         self._sp.next_track()
+
+    def cycle_playback_devices(self):
+        """Move playback to the next available device, wrapping around."""
+        devices = self._sp.devices()["devices"]
+        if len(devices) < 2:
+            print("Need at least two devices to cycle.")
+            return
+
+        # -1 when nothing is active, so the +1 below lands on the first device
+        current = next((i for i, d in enumerate(devices) if d["is_active"]), -1)
+        target = devices[(current + 1) % len(devices)]
+
+        self._sp.transfer_playback(target["id"], force_play=not self._paused)
+        time.sleep(0.5)  # Spotify needs a moment to register the handoff
+
+        if target["volume_percent"] is not None:
+            self._volume_target = target["volume_percent"]
+        print(f"Playback moved to: {target['name']}")
 
     def _change_volume(self, delta):
         """"Change the volume of the device by delta."""
