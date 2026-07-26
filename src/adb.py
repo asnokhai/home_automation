@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import shlex
 import subprocess
 import time
 
@@ -136,9 +137,50 @@ class ADB:
             return "", 124
         return ((proc.stdout or "") + (proc.stderr or "")).strip(), proc.returncode
 
+    # --- alarms -----------------------------------------------------------
+
+    def set_alarm(self, hour: int, minute: int, label: str = "") -> None:
+        """Set an alarm; buzz the phone only once it's confirmed set.
+
+        Raises ADBError if the clock app didn't accept the intent.
+        """
+        if not (0 <= hour <= 23 and 0 <= minute <= 59):
+            raise ValueError(f"{hour:02d}:{minute:02d} is not a valid time")
+
+        out = self._shell(
+            "am start -W -a android.intent.action.SET_ALARM "
+            f"--ei android.intent.extra.alarm.HOUR {hour} "
+            f"--ei android.intent.extra.alarm.MINUTES {minute} "
+            "--ez android.intent.extra.alarm.SKIP_UI true "
+            f"--es android.intent.extra.alarm.MESSAGE {shlex.quote(label)}"
+        )
+
+        status, activity = None, None
+        for line in out.splitlines():
+            line = line.strip()
+            if line.startswith("Error:"):
+                raise ADBError(f"Alarm not set: {line[6:].strip()}")
+            if line.startswith("Status:"):
+                status = line.split(":", 1)[1].strip()
+            elif line.startswith("Activity:"):
+                activity = line.split(":", 1)[1].strip()
+
+        if status != "ok":
+            raise ADBError(f"Alarm not set (status {status!r}): {out}")
+
+        self._buzz()  # only reached on success
+
+    def _buzz(self, ms: int = 400) -> bool:
+        """Short confirmation vibration. Never fatal — the alarm is already set."""
+        try:
+            out = self._shell(f"cmd vibrator_manager synced -f oneshot {ms}").lower()
+        except ADBError:
+            return False
+        return not ("unknown command" in out or "exception" in out)
 
 if __name__ == "__main__":
     phone = ADB()
+    phone._buzz()
     try:
         print("blocked" if phone.toggle_instagram() else "available")
     except ADBUnavailable as e:

@@ -91,9 +91,15 @@ class SpotifyPlayer:
         self._sp.volume(self._volume_target)
         print("New volume:", self._volume_target)
 
-    def _get_volume(self):
-        """"Return the current volume of the device."""
-        return self._sp.current_playback()["device"]["volume_percent"]
+    def _get_volume(self) -> int | None:
+        state = self._sp.current_playback()
+        if state and state.get("device"):
+            return state["device"].get("volume_percent")
+
+        for d in self._sp.devices().get("devices", []):
+            if d.get("is_active"):
+                return d.get("volume_percent")
+        return None
 
     def _get_device_id(self):
         """Find the dev kit's device ID by name."""

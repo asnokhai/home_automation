@@ -33,9 +33,11 @@ PHRASES = {
     "all_off":       "All lights off",
     "mode_night":    "Night mode",
     "mode_day":      "Day mode",
+    "play_song": "Playing Song",
+    "set_alarm": "Setting alarm",
     "controller_mode_bluetooth": "Bluetooth Mode",
     "controller_mode_lights": "Lights Mode",
-    "play_song": "Playing Song"
+    "controller_mode_phone": "Phone Mode",
 }
 
 

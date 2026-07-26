@@ -57,6 +57,7 @@ def build_actions(tapo, controller, spotify, bluetooth, phone):
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
         "exit": Action(sys.exit),
         "toggle_instagram": Action(phone.toggle_instagram),
+        "set_alarm": Action(partial(phone.set_alarm, hour=7, minute=45), say="set_alarm")
     }
 
 
@@ -102,7 +103,10 @@ def build_button_maps(actions):
             "down":  actions["play_song_4"],
             "lb":    actions["decrease_volume"],
             "rb":    actions["increase_volume"],
-            "L":     actions["toggle_instagram"],
             "R":     actions["cycle_playback_devices"],
         },
+        "controller_mode_phone": {
+            "a": actions["toggle_instagram"],
+            "L": actions["set_alarm"]
+        }
     }
