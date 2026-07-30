@@ -83,6 +83,10 @@ class XboxController:
 
         return self._active_mode
 
+    def select_mode(self, index):
+        self._active_mode_index = index
+        self._active_mode = self._controller_modes_list[index]
+
     def set_button_maps(self, maps):
         self._button_maps = maps
         self._controller_modes_list = list(maps.keys())

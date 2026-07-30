@@ -35,6 +35,9 @@ async def run_action(action: Action, sound):
 def build_actions(tapo, controller, spotify, bluetooth, phone):
     """Define every action once, bound directly to its class method."""
     return {
+        "select_controller_mode_0": Action(partial(controller.select_mode, 0), say="controller_mode_lights"),
+        "select_controller_mode_1": Action(partial(controller.select_mode, 1), say="controller_mode_bluetooth"),
+        "select_controller_mode_2": Action(partial(controller.select_mode, 2), say="controller_mode_phone"),
         "kitchen":     Action(partial(tapo.toggle, "Kitchen")),
         "bathroom":    Action(partial(tapo.toggle, "Bathroom")),
         "living":      Action(partial(tapo.toggle, "Living Room")),
@@ -42,7 +45,7 @@ def build_actions(tapo, controller, spotify, bluetooth, phone):
         "all_on":      Action(tapo.all_on),
         "all_off":     Action(tapo.all_off, say="all_off"),
         "night_mode":  Action(tapo.toggle_night_mode),
-        "cycle_mode":  Action(controller.cycle_mode, say=True),
+
         "play_song_1":   Action(partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song"),
         "play_song_2": Action(partial(spotify.play_song, "Holiday - Green Day"), say="play_song"),
         "play_song_3": Action(partial(spotify.play_song, "Automatic Sun - The Warning"), say="play_song"),
@@ -56,6 +59,7 @@ def build_actions(tapo, controller, spotify, bluetooth, phone):
         "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
         "exit": Action(sys.exit),
+
         "toggle_instagram": Action(phone.toggle_instagram),
         "set_alarm": Action(partial(phone.set_alarm, hour=7, minute=45), say="set_alarm")
     }
@@ -71,7 +75,6 @@ def build_command_map(actions):
         "on":               actions["all_on"],
         "off":              actions["all_off"],
         "lights mode":      actions["night_mode"],
-        "controller mode":  actions["cycle_mode"],
         "toggle pause":     actions["toggle_pause_resume_song"],
         "exit":             actions["exit"],
     }
@@ -79,7 +82,16 @@ def build_command_map(actions):
 
 def build_button_maps(actions):
     """Controller mode -> button -> Action."""
-    return {
+
+    # Bound in every mode. A mode can override any of these by listing the
+    # same button in its own map, since mode bindings are merged in second.
+    common = {
+        "LJ-up": actions["select_controller_mode_0"],
+        "LJ-left": actions["select_controller_mode_1"],
+        "LJ-right": actions["select_controller_mode_2"],
+    }
+
+    modes = {
         "controller_mode_lights": {
             "a":     actions["kitchen"],
             "b":     actions["bathroom"],
@@ -88,7 +100,6 @@ def build_button_maps(actions):
             "rb":    actions["all_on"],
             "lb":    actions["all_off"],
             "start": actions["night_mode"],
-            "back":  actions["cycle_mode"],
         },
         "controller_mode_bluetooth": {
             "a":     actions["toggle_pause_resume_song"],
@@ -96,18 +107,18 @@ def build_button_maps(actions):
             "x":     actions["restart_song"],
             "b":     actions["skip_song"],
             "start": actions["disconnect_xbox_controller"],
-            "back":  actions["cycle_mode"],
             "up":    actions["play_song_1"],
             "left":  actions["play_song_2"],
             "right": actions["play_song_3"],
             "down":  actions["play_song_4"],
             "lb":    actions["decrease_volume"],
             "rb":    actions["increase_volume"],
-            "RJ":     actions["cycle_playback_devices"],
+            "R":     actions["cycle_playback_devices"],
         },
         "controller_mode_phone": {
-            "a": actions["toggle_instagram"],
-            "LJ": actions["set_alarm"],
-            "back": actions["cycle_mode"],
-        }
+            "a":  actions["toggle_instagram"],
+            "LJ-up": actions["set_alarm"],
+        },
     }
+
+    return {name: {**common, **bindings} for name, bindings in modes.items()}
