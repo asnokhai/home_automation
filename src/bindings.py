@@ -55,8 +55,10 @@ def build_actions(tapo, controller, spotify, bluetooth, phone):
         "toggle_pause_resume_song":  Action(spotify.toggle_pause_resume),
         "restart_song": Action(spotify.restart_song),
         "skip_song": Action(spotify.skip_song),
+        "play_previous_song": Action(spotify.play_previous_song),
         "cycle_playback_devices": Action(spotify.cycle_playback_devices),
-        "toggle_speaker_connection": Action(bluetooth.toggle_speaker_connection),
+        "connect_to_speaker": Action(bluetooth.connect_to_speaker),
+        "disconnect_from_speaker": Action(bluetooth.disconnect_from_speaker, say="disconnect_from_speaker"),
         "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
         "exit": Action(sys.exit),
 
@@ -103,7 +105,7 @@ def build_button_maps(actions):
         },
         "controller_mode_bluetooth": {
             "a":     actions["toggle_pause_resume_song"],
-            "y":     actions["toggle_speaker_connection"],
+            "y":     actions["play_previous_song"],
             "x":     actions["restart_song"],
             "b":     actions["skip_song"],
             "start": actions["disconnect_xbox_controller"],
@@ -114,9 +116,11 @@ def build_button_maps(actions):
             "lb":    actions["decrease_volume"],
             "rb":    actions["increase_volume"],
             "R":     actions["cycle_playback_devices"],
+            "LT":    actions["disconnect_from_speaker"],
+            "RT":    actions["connect_to_speaker"],
         },
         "controller_mode_phone": {
-            "a":  actions["toggle_instagram"],
+            "a":     actions["toggle_instagram"],
             "LJ-up": actions["set_alarm"],
         },
     }

@@ -35,6 +35,7 @@ PHRASES = {
     "mode_day":      "Day mode",
     "play_song": "Playing Song",
     "set_alarm": "Setting alarm",
+    "disconnect_from_speaker": "Disconnecting from speaker failed", # This runs after the cmd, so if you hear it, it failed
     "controller_mode_bluetooth": "Bluetooth Mode",
     "controller_mode_lights": "Lights Mode",
     "controller_mode_phone": "Phone Mode",

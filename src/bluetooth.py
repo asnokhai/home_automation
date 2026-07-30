@@ -229,12 +229,12 @@ class Bluetooth:
                 found[address.upper()] = name
         return found
 
-    def toggle_speaker_connection(self):
-        if self.is_connected(SPEAKERS_MAC_ADDRESS):
-            self.disconnect(SPEAKERS_MAC_ADDRESS)
-        else:
-            self.connect(SPEAKERS_MAC_ADDRESS)
+    def connect_to_speaker(self):
+        self.connect(SPEAKERS_MAC_ADDRESS)
+        print("Device is connected: ", self.is_connected(SPEAKERS_MAC_ADDRESS))
 
+    def disconnect_from_speaker(self):
+        self.disconnect(SPEAKERS_MAC_ADDRESS)
         print("Device is connected: ", self.is_connected(SPEAKERS_MAC_ADDRESS))
 
     def disconnect_xbox_controller(self):
