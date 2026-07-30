@@ -103,11 +103,11 @@ def build_button_maps(actions):
             "down":  actions["play_song_4"],
             "lb":    actions["decrease_volume"],
             "rb":    actions["increase_volume"],
-            "R":     actions["cycle_playback_devices"],
+            "RJ":     actions["cycle_playback_devices"],
         },
         "controller_mode_phone": {
             "a": actions["toggle_instagram"],
-            "L": actions["set_alarm"],
+            "LJ": actions["set_alarm"],
             "back": actions["cycle_mode"],
         }
     }
