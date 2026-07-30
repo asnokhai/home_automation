@@ -17,7 +17,7 @@ import sys
 
 import pygame
 
-from src.xbox_controller import XboxController
+from src.xbox_controller.xbox_controller import XboxController
 
 
 def build_button_map(prefix):
