@@ -10,6 +10,7 @@ from gtts import gTTS
 from pydub import AudioSegment
 from pydub.generators import WhiteNoise
 import os
+import hashlib
 
 SPEECH_DIR = "./resources/speech"
 
@@ -35,6 +36,7 @@ PHRASES = {
     "mode_day":      "Day mode",
     "play_song": "Playing Song",
     "set_alarm": "Setting alarm",
+    "disconnect_from_speaker": "Disconnecting from speaker failed", # This runs after the cmd, so if you hear it, it failed
     "controller_mode_bluetooth": "Bluetooth Mode",
     "controller_mode_lights": "Lights Mode",
     "controller_mode_phone": "Phone Mode",
@@ -57,6 +59,7 @@ class SoundPlayer:
         self._speech = {}
         self._generate_missing()
         self._load_speech()
+        self._adhoc = {}  # cache for on-the-fly phrases
 
     def _generate_missing(self):
         os.makedirs(SPEECH_DIR, exist_ok=True)
@@ -93,3 +96,45 @@ class SoundPlayer:
             sound.play()
         else:
             print(f"  ⚠ No speech sound for '{key}'")
+            self.say_text(key)
+
+    def say_text(self, text, cache_to_disk=False):
+        """Speak an arbitrary string, generating TTS on demand.
+
+        Requires network access (gTTS). Results are cached in memory for the
+        process lifetime; pass cache_to_disk=True to persist to SPEECH_DIR.
+        """
+        sound = self._adhoc.get(text)
+
+        if sound is None:
+            path = None
+            if cache_to_disk:
+                digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+                path = os.path.join(SPEECH_DIR, f"adhoc_{digest}.wav")
+
+            if path and os.path.exists(path):
+                sound = pygame.mixer.Sound(path)
+            else:
+                try:
+                    mp3_buf = io.BytesIO()
+                    gTTS(text).write_to_fp(mp3_buf)
+                    mp3_buf.seek(0)
+                    speech = AudioSegment.from_mp3(mp3_buf)
+                    padded = _wake_padding(speech) + speech
+                except Exception as e:
+                    print(f"  ⚠ TTS failed for {text!r}: {e}")
+                    return
+
+                if path:
+                    os.makedirs(SPEECH_DIR, exist_ok=True)
+                    padded.export(path, format="wav")
+                    sound = pygame.mixer.Sound(path)
+                else:
+                    wav_buf = io.BytesIO()
+                    padded.export(wav_buf, format="wav")
+                    wav_buf.seek(0)
+                    sound = pygame.mixer.Sound(wav_buf)
+
+            self._adhoc[text] = sound
+
+        sound.play()

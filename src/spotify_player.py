@@ -56,9 +56,18 @@ class SpotifyPlayer:
 
     def restart_song(self):
         self._sp.seek_track(0)
+        self._sp.start_playback()
+        self._paused = False
 
     def skip_song(self):
         self._sp.next_track()
+        self._sp.start_playback()
+        self._paused = False
+
+    def play_previous_song(self):
+        self._sp.previous_track()
+        self._sp.start_playback()
+        self._paused = False
 
     def cycle_playback_devices(self):
         """Move playback to the next available device, wrapping around."""

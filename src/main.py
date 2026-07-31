@@ -8,7 +8,8 @@ import sys
 from sound_player import SoundPlayer
 from spotify_player import SpotifyPlayer
 from adb import ADB
-from xbox_controller import XboxController
+from src.xbox_controller.xbox_controller import XboxController
+from src.xbox_controller.xbox_controller_battery import XboxControllerBattery
 from tapo_controller import TapoController
 from bluetooth import Bluetooth
 from bindings import build_actions, build_command_map, build_button_maps, run_action
@@ -33,13 +34,16 @@ async def main():
     sound = SoundPlayer()
     spotify = SpotifyPlayer()
     controller = XboxController()
+    controller_battery = XboxControllerBattery()
     tapo = TapoController()
     bluetooth = Bluetooth()
     phone = ADB()
 
+    print("BATTERY startup probe:", controller_battery.read())
+
     await tapo.connect_to_lights()
 
-    actions = build_actions(tapo, controller, spotify, bluetooth, phone)
+    actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
