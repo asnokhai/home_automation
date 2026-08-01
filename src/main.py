@@ -7,12 +7,13 @@ import sys
 
 from sound_player import SoundPlayer
 from spotify_player import SpotifyPlayer
+from voice_assistant import VoiceAssistant
 from adb import ADB
 from src.xbox_controller.xbox_controller import XboxController
 from src.xbox_controller.xbox_controller_battery import XboxControllerBattery
 from tapo_controller import TapoController
 from bluetooth import Bluetooth
-from bindings import build_actions, build_command_map, build_button_maps, run_action
+from src.bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
 async def stdin_reader(commands, handler):
@@ -53,6 +54,9 @@ async def main():
     controller.set_button_maps(button_maps)
     controller.set_action_handler(on_action)
 
+    voice = VoiceAssistant(actions, sound)
+    voice.set_action_handler(on_action)
+
     print("\nReady!")
     print("  Controller: A=Kitchen  B=Bathroom  X=Living Room  Y=Vibe")
     print("  Controller: LB=All on  RB=All off  Start=Night/Day mode")
@@ -62,6 +66,7 @@ async def main():
         await asyncio.gather(
             controller.run(),
             stdin_reader(commands, on_action),
+            voice.run(),
         )
     except KeyboardInterrupt:
         pass

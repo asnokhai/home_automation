@@ -3,6 +3,9 @@ Action bindings: button/keyword -> a specific class method, bound directly.
 
 Adding a new capability means writing a method on some class and referencing
 it in build_actions() below -- no keyword to invent, no dispatcher to edit.
+
+`desc` is what the voice assistant shows the model. An Action with desc=None
+is invisible to voice and can only be triggered by button or terminal.
 """
 
 import asyncio
@@ -11,10 +14,12 @@ from dataclasses import dataclass
 from functools import partial
 from typing import Callable
 
+
 @dataclass
 class Action:
     fn: Callable
-    say: object = None  # None: silent, True: say fn's return value, str: say this phrase
+    say: object = None   # None: silent, True: say fn's return value, str: say this phrase
+    desc: str = None     # None: hidden from voice. str: description shown to the model.
 
 
 async def run_action(action: Action, sound):
@@ -35,36 +40,93 @@ async def run_action(action: Action, sound):
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone):
     """Define every action once, bound directly to its class method."""
     return {
+        # -- controller modes: button-only, meaningless by voice ----------
         "select_controller_mode_0": Action(partial(controller.select_mode, 0), say="controller_mode_lights"),
         "select_controller_mode_1": Action(partial(controller.select_mode, 1), say="controller_mode_bluetooth"),
         "select_controller_mode_2": Action(partial(controller.select_mode, 2), say="controller_mode_phone"),
-        "kitchen":     Action(partial(tapo.toggle, "Kitchen")),
-        "bathroom":    Action(partial(tapo.toggle, "Bathroom")),
-        "living":      Action(partial(tapo.toggle, "Living Room")),
-        "vibe":        Action(partial(tapo.toggle, "Vibe")),
-        "all_on":      Action(tapo.all_on),
-        "all_off":     Action(tapo.all_off, say="all_off"),
-        "night_mode":  Action(tapo.toggle_night_mode),
 
-        "play_song_1":   Action(partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song"),
-        "play_song_2": Action(partial(spotify.play_song, "Holiday - Green Day"), say="play_song"),
-        "play_song_3": Action(partial(spotify.play_song, "Automatic Sun - The Warning"), say="play_song"),
-        "play_song_4": Action(partial(spotify.play_song, "Reason - Selah Sue"), say="play_song"),
-        "increase_volume": Action(spotify.increase_volume),
-        "decrease_volume": Action(spotify.decrease_volume),
-        "toggle_pause_resume_song":  Action(spotify.toggle_pause_resume),
-        "restart_song": Action(spotify.restart_song),
-        "skip_song": Action(spotify.skip_song),
-        "play_previous_song": Action(spotify.play_previous_song),
-        "cycle_playback_devices": Action(spotify.cycle_playback_devices),
-        "connect_to_speaker": Action(bluetooth.connect_to_speaker),
-        "disconnect_from_speaker": Action(bluetooth.disconnect_from_speaker, say="disconnect_from_speaker"),
-        "disconnect_xbox_controller": Action(bluetooth.disconnect_xbox_controller),
-        "call_battery_level": Action(partial(controller_battery.say_battery_level), say=True),
+        # -- lights -------------------------------------------------------
+        "kitchen": Action(
+            partial(tapo.toggle, "Kitchen"),
+            desc="Toggle the kitchen light on or off"),
+        "bathroom": Action(
+            partial(tapo.toggle, "Bathroom"),
+            desc="Toggle the bathroom light on or off"),
+        "living": Action(
+            partial(tapo.toggle, "Living Room"),
+            desc="Toggle the living room light on or off"),
+        "vibe": Action(
+            partial(tapo.toggle, "Vibe"),
+            desc="Toggle the vibe light on or off"),
+        "all_on": Action(
+            tapo.all_on,
+            desc="Turn on every light in the house"),
+        "all_off": Action(
+            tapo.all_off, say="all_off",
+            desc="Turn off every light in the house"),
+        "night_mode": Action(
+            tapo.toggle_night_mode,
+            desc="Switch the lights between night mode and day mode"),
+
+        # -- music --------------------------------------------------------
+        "play_song_1": Action(
+            partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song",
+            desc="Play the song Afterlife by Avenged Sevenfold"),
+        "play_song_2": Action(
+            partial(spotify.play_song, "Holiday - Green Day"), say="play_song",
+            desc="Play the song Holiday by Green Day"),
+        "play_song_3": Action(
+            partial(spotify.play_song, "Automatic Sun - The Warning"), say="play_song",
+            desc="Play the song Automatic Sun by The Warning"),
+        "play_song_4": Action(
+            partial(spotify.play_song, "Reason - Selah Sue"), say="play_song",
+            desc="Play the song Reason by Selah Sue"),
+        "increase_volume": Action(
+            spotify.increase_volume,
+            desc="Turn the music volume up"),
+        "decrease_volume": Action(
+            spotify.decrease_volume,
+            desc="Turn the music volume down"),
+        "toggle_pause_resume_song": Action(
+            spotify.toggle_pause_resume,
+            desc="Pause the music if it is playing, or resume it if it is paused"),
+        "restart_song": Action(
+            spotify.restart_song,
+            desc="Start the current song again from the beginning"),
+        "skip_song": Action(
+            spotify.skip_song,
+            desc="Skip to the next song"),
+        "play_previous_song": Action(
+            spotify.play_previous_song,
+            desc="Go back to the previous song"),
+        "cycle_playback_devices": Action(
+            spotify.cycle_playback_devices,
+            desc="Switch Spotify playback to the next available device"),
+
+        # -- bluetooth ----------------------------------------------------
+        "connect_to_speaker": Action(
+            bluetooth.connect_to_speaker,
+            desc="Connect to the bluetooth speaker"),
+        "disconnect_from_speaker": Action(
+            bluetooth.disconnect_from_speaker, say="disconnect_from_speaker",
+            desc="Disconnect from the bluetooth speaker"),
+        "disconnect_xbox_controller": Action(
+            bluetooth.disconnect_xbox_controller,
+            desc="Disconnect the Xbox controller"),
+        "call_battery_level": Action(
+            partial(controller_battery.say_battery_level), say=True,
+            desc="Report the Xbox controller's remaining battery level"),
+
+        # -- phone --------------------------------------------------------
+        "toggle_instagram": Action(
+            phone.toggle_instagram,
+            desc="Open or close Instagram on the phone"),
+        "set_alarm": Action(
+            partial(phone.set_alarm, hour=7, minute=45), say="set_alarm",
+            desc="Set an alarm on the phone for 7:45"),
+
+        # -- deliberately voice-hidden ------------------------------------
         "exit": Action(sys.exit),
-
-        "toggle_instagram": Action(phone.toggle_instagram),
-        "set_alarm": Action(partial(phone.set_alarm, hour=7, minute=45), say="set_alarm")
     }
 
 
@@ -81,6 +143,22 @@ def build_command_map(actions):
         "toggle pause":     actions["toggle_pause_resume_song"],
         "exit":             actions["exit"],
     }
+
+
+def build_voice_tools(actions):
+    """Actions with a desc -> OpenAI function-calling tool schema."""
+    return [
+        {
+            "type": "function",
+            "function": {
+                "name": name,
+                "description": action.desc,
+                "parameters": {"type": "object", "properties": {}},
+            },
+        }
+        for name, action in actions.items()
+        if action.desc
+    ]
 
 
 def build_button_maps(actions):
