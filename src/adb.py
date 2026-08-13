@@ -6,9 +6,8 @@ import shlex
 import subprocess
 import time
 
-from config import PHONE_IP, ADB_PORT
+from config import PHONE_IP, ADB_PORT, ADB_PATH
 
-ADB_PATH = "/usr/bin/adb"
 INSTAGRAM = "com.instagram.android"
 
 # What adb prints when the transport is gone. It exits non-zero, but the message

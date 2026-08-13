@@ -14,7 +14,7 @@ import time
 from jeepney import DBusAddress, MessageType, new_method_call
 from jeepney.io.blocking import open_dbus_connection
 
-from src.xbox_controller.xbox_controller_battery import (
+from xbox_controller.xbox_controller_battery import (
     BATTERY_IFACE,
     BLUEZ,
     DEVICE_IFACE,

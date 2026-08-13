@@ -4,7 +4,7 @@ import numpy as np
 from openai import OpenAI
 from openwakeword.model import Model
 import openwakeword
-from src.bindings import build_voice_tools
+from bindings import build_voice_tools
 from dotenv import load_dotenv
 load_dotenv()
 

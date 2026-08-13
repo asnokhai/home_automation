@@ -9,11 +9,11 @@ from sound_player import SoundPlayer
 from spotify_player import SpotifyPlayer
 from voice_assistant import VoiceAssistant
 from adb import ADB
-from src.xbox_controller.xbox_controller import XboxController
-from src.xbox_controller.xbox_controller_battery import XboxControllerBattery
+from xbox_controller.xbox_controller import XboxController
+from xbox_controller.xbox_controller_battery import XboxControllerBattery
 from tapo_controller import TapoController
 from bluetooth import Bluetooth
-from src.bindings import build_actions, build_command_map, build_button_maps, run_action
+from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
 async def stdin_reader(commands, handler):
