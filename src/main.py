@@ -59,7 +59,8 @@ async def main():
 
     print("\nReady!")
     print("  Controller: A=Kitchen  B=Bathroom  X=Living Room  Y=Vibe")
-    print("  Controller: LB=All on  RB=All off  Start=Night/Day mode")
+    print("  Controller: RB=All on  LB=All off  Start=Night/Day mode")
+    print("  Controller: D-pad up/down = brighter / dimmer")
     print(f"  Terminal:   {' | '.join(commands.keys())}\n")
 
     try:

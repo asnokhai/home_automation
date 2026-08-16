@@ -1,0 +1,1 @@
+journalctl --user -u home_automation.service -f

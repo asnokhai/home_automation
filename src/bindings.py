@@ -67,6 +67,12 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
         "night_mode": Action(
             tapo.toggle_night_mode,
             desc="Switch the lights between night mode and day mode"),
+        "increase_brightness": Action(
+            tapo.increase_brightness,
+            desc="Make the lights brighter"),
+        "decrease_brightness": Action(
+            tapo.decrease_brightness,
+            desc="Dim the lights"),
 
         # -- music --------------------------------------------------------
         "play_song_1": Action(
@@ -181,6 +187,8 @@ def build_button_maps(actions):
             "rb":    actions["all_on"],
             "lb":    actions["all_off"],
             "start": actions["night_mode"],
+            "up":    actions["increase_brightness"],
+            "down":  actions["decrease_brightness"],
         },
         "controller_mode_bluetooth": {
             "a":     actions["toggle_pause_resume_song"],
