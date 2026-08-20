@@ -48,8 +48,8 @@ async def main():
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
-    async def on_action(action):
-        await run_action(action, sound)
+    async def on_action(action, args=None):
+        await run_action(action, sound, args)
 
     controller.set_button_maps(button_maps)
     controller.set_action_handler(on_action)

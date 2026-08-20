@@ -30,10 +30,11 @@ This runs on a Raspberry Pi under Linux and depends on it: `aplay` for TTS playb
 
 Three input surfaces — Xbox controller, terminal stdin, and voice — all resolve to the same `Action` objects and run through one handler. `main.py` builds every hardware wrapper, hands them to `bindings.build_actions()`, and runs `controller.run()`, `stdin_reader()`, and `voice.run()` concurrently under `asyncio.gather`.
 
-`src/bindings.py` is the single registry and the file to edit for almost any behaviour change. An `Action` wraps a bound method plus two optional fields:
+`src/bindings.py` is the single registry and the file to edit for almost any behaviour change. An `Action` wraps a bound method plus three optional fields:
 
 - `say` — `None` for silent, a string key into `SoundPlayer.PHRASES` for a canned clip, or `True` to speak the function's return value.
-- `desc` — the description shown to the LLM. **An action with no `desc` is invisible to voice** and can only fire from a button or the terminal. This is deliberate for things like `exit` and controller mode switches.
+- `desc` — the description shown to the LLM. **An action with no `desc` is invisible to voice** and can only fire from a button or the terminal. This is deliberate for things like `exit`, the controller mode switches, and the four `play_song_N` D-pad favourites that `play_song` supersedes for voice.
+- `params` — `None` for a no-argument action, or a dict of JSON-schema properties the LLM fills in (every key is emitted as required). `run_action` splats them in as keyword arguments, so they must match the method's parameter names. `play_song` is the one user: it takes any `song_name`. Buttons and terminal keywords never supply arguments — they use `partial`-bound ones instead — so `run_action(action, sound)` still works unchanged.
 
 Adding a capability means writing a method on a wrapper class and referencing it in `build_actions()`. There is no keyword to invent and no dispatcher to extend: `build_command_map` (terminal words), `build_button_maps` (controller), and `build_voice_tools` (OpenAI function schemas) all derive from that one dict. `run_action` plays the click sound, awaits the result if it is a coroutine, then speaks — and swallows exceptions so one bad action cannot kill the loop.
 

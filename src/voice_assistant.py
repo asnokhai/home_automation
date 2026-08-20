@@ -62,7 +62,7 @@ class VoiceAssistant:
             text = self.client.audio.transcriptions.create(
                 model="whisper-1", file=fh).text.strip()
         if not text:
-            return None, None
+            return None, None, None
         print(f"  You: {text}")
 
         msg = self.client.chat.completions.create(
@@ -76,8 +76,9 @@ class VoiceAssistant:
             ]).choices[0].message
 
         if msg.tool_calls:
-            return msg.tool_calls[0].function.name, None
-        return None, msg.content
+            call = msg.tool_calls[0].function
+            return call.name, json.loads(call.arguments or "{}"), None
+        return None, None, msg.content
 
     # --- main loop -----------------------------------------------------
     async def run(self):
@@ -95,12 +96,12 @@ class VoiceAssistant:
             self.oww.reset()
             print(f"  Wake word detected ({score:.2f})")
             try:
-                action_name, reply = await loop.run_in_executor(
+                action_name, args, reply = await loop.run_in_executor(
                     None, self._listen_and_think)
 
                 if action_name:
-                    print(f"  → {action_name}")
-                    await self.handler(self.actions[action_name])
+                    print(f"  → {action_name}{args or ''}")
+                    await self.handler(self.actions[action_name], args)
                 elif reply:
                     print(f"  Bot: {reply}")
                     await loop.run_in_executor(None, self._speak, reply)

@@ -20,13 +20,19 @@ class Action:
     fn: Callable
     say: object = None   # None: silent, True: say fn's return value, str: say this phrase
     desc: str = None     # None: hidden from voice. str: description shown to the model.
+    params: dict = None  # None: takes no arguments. dict: JSON-schema properties the model fills in.
 
 
-async def run_action(action: Action, sound):
-    """Play the click sound, run the bound function, then speak if configured."""
+async def run_action(action: Action, sound, args=None):
+    """Play the click sound, run the bound function, then speak if configured.
+
+    `args` carries the arguments the voice model filled in for an Action with
+    `params`. Buttons and terminal keywords pass nothing -- their actions are
+    already fully bound -- so it defaults to no arguments.
+    """
     try:
         sound.play()
-        result = action.fn()
+        result = action.fn(**(args or {}))
         if asyncio.iscoroutine(result):
             result = await result
         if action.say is True:
@@ -75,18 +81,29 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
             desc="Dim the lights"),
 
         # -- music --------------------------------------------------------
+        "play_song": Action(
+            spotify.play_song, say="play_song",
+            desc="Play a specific song on Spotify. Pass the song the user asked "
+                 "for, including the artist if they named one.",
+            params={
+                "song_name": {
+                    "type": "string",
+                    "description": "Song title, or 'Title - Artist' when the "
+                                   "artist is known",
+                },
+            }),
+
+        # The D-pad favourites. Voice-hidden on purpose: "play_song" above already
+        # covers them, and leaving them visible gives the model five overlapping
+        # ways to start music.
         "play_song_1": Action(
-            partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song",
-            desc="Play the song Afterlife by Avenged Sevenfold"),
+            partial(spotify.play_song, "Afterlife - Avenged Sevenfold"), say="play_song"),
         "play_song_2": Action(
-            partial(spotify.play_song, "Holiday - Green Day"), say="play_song",
-            desc="Play the song Holiday by Green Day"),
+            partial(spotify.play_song, "Holiday - Green Day"), say="play_song"),
         "play_song_3": Action(
-            partial(spotify.play_song, "Automatic Sun - The Warning"), say="play_song",
-            desc="Play the song Automatic Sun by The Warning"),
+            partial(spotify.play_song, "Automatic Sun - The Warning"), say="play_song"),
         "play_song_4": Action(
-            partial(spotify.play_song, "Reason - Selah Sue"), say="play_song",
-            desc="Play the song Reason by Selah Sue"),
+            partial(spotify.play_song, "Reason - Selah Sue"), say="play_song"),
         "increase_volume": Action(
             spotify.increase_volume,
             desc="Turn the music volume up"),
@@ -160,7 +177,11 @@ def build_voice_tools(actions):
             "function": {
                 "name": name,
                 "description": action.desc,
-                "parameters": {"type": "object", "properties": {}},
+                "parameters": {
+                    "type": "object",
+                    "properties": action.params or {},
+                    "required": list(action.params or {}),
+                },
             },
         }
         for name, action in actions.items()
