@@ -1,13 +1,12 @@
-import socket, numpy as np, wave, subprocess, os, time
+import socket, numpy as np, wave, subprocess, os, sys, time
 from openai import OpenAI
-from openwakeword.model import Model
-import openwakeword
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
+import wakeword
 from dotenv import load_dotenv
 load_dotenv()
 
 client = OpenAI()                      # reads OPENAI_API_KEY
-openwakeword.utils.download_models()
-oww = Model()
+oww, wake_keys = wakeword.load_model()
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 sock.bind(('0.0.0.0', 5005))
@@ -44,11 +43,11 @@ def save_wav(audio, path):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(RATE)
         w.writeframes(audio.tobytes())
 
-print("Ready. Say 'hey jarvis'.")
+print(f"Ready. Say '{wakeword.WAKEWORD}'.")
 while True:
     f = next_frame()
     print(rms(f))
-    if max(oww.predict(f).values()) < 0.5:
+    if wakeword.score(oww.predict(f), wake_keys) < wakeword.THRESHOLD:
         continue
 
     print("Wake word! Listening...")
