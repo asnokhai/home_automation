@@ -2,8 +2,7 @@ import asyncio, json, socket, subprocess, wave
 import traceback
 import numpy as np
 from openai import OpenAI
-from openwakeword.model import Model
-import openwakeword
+import wakeword
 from bindings import build_voice_tools
 from dotenv import load_dotenv
 load_dotenv()
@@ -16,8 +15,7 @@ class VoiceAssistant:
         self.actions = actions
         self.sound = sound
         self.client = OpenAI()
-        openwakeword.utils.download_models()
-        self.oww = Model()
+        self.oww, self.wake_keys = wakeword.load_model()   # 'hey jarvis' only
 
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
         self.sock.bind(('0.0.0.0', port))
@@ -84,15 +82,18 @@ class VoiceAssistant:
     # --- main loop -----------------------------------------------------
     async def run(self):
         loop = asyncio.get_event_loop()
-        print("  Voice: say 'hey jarvis'")
+        print(f"  Voice: say '{wakeword.WAKEWORD}'")
         while True:
             frame = await loop.run_in_executor(None, self._next_frame)
-            if self.busy or max(self.oww.predict(frame).values()) < 0.5:
+            if self.busy:
+                continue
+            score = wakeword.score(self.oww.predict(frame), self.wake_keys)
+            if score < wakeword.THRESHOLD:
                 continue
 
             self.busy = True
             self.oww.reset()
-            print("  Wake word detected")
+            print(f"  Wake word detected ({score:.2f})")
             try:
                 action_name, reply = await loop.run_in_executor(
                     None, self._listen_and_think)
