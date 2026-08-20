@@ -14,13 +14,6 @@ import hashlib
 
 SPEECH_DIR = "./resources/speech"
 
-# Bluetooth speakers idle their amp between streams and clip the first
-# fraction of a second when audio resumes. A short burst of very quiet noise
-# in front of each clip wakes the speaker before the words start. Real noise
-# rather than digital silence: many speakers gate a silent stream anyway.
-WAKE_MS = 250
-WAKE_DBFS = -50
-
 PHRASES = {
     "kitchen_on":    "Kitchen on",
     "kitchen_off":   "Kitchen off",
@@ -42,20 +35,10 @@ PHRASES = {
     "controller_mode_phone": "Phone Mode",
 }
 
-
-def _wake_padding(reference):
-    """Near-silent noise matching the reference clip's audio parameters."""
-    noise = WhiteNoise().to_audio_segment(duration=WAKE_MS, volume=WAKE_DBFS)
-    return (noise
-            .set_frame_rate(reference.frame_rate)
-            .set_channels(reference.channels)
-            .set_sample_width(reference.sample_width))
-
-
 class SoundPlayer:
     def __init__(self):
         pygame.mixer.init()
-        self._click = pygame.mixer.Sound("./resources/button-click-padded.wav")
+        self._click = pygame.mixer.Sound("./resources/button-click.wav")
         self._speech = {}
         self._generate_missing()
         self._load_speech()
@@ -74,7 +57,7 @@ class SoundPlayer:
             gTTS(text).write_to_fp(mp3_buf)
             mp3_buf.seek(0)
             speech = AudioSegment.from_mp3(mp3_buf)
-            (_wake_padding(speech) + speech).export(path, format="wav")
+            speech.export(path, format="wav")
 
     def _load_speech(self):
         for key in PHRASES:
@@ -120,7 +103,7 @@ class SoundPlayer:
                     gTTS(text).write_to_fp(mp3_buf)
                     mp3_buf.seek(0)
                     speech = AudioSegment.from_mp3(mp3_buf)
-                    padded = _wake_padding(speech) + speech
+                    padded = speech
                 except Exception as e:
                     print(f"  ⚠ TTS failed for {text!r}: {e}")
                     return

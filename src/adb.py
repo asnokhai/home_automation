@@ -1,4 +1,4 @@
-"""Minimal adb wrapper: connect to the phone over wireless adb, toggle Instagram."""
+"""Minimal adb wrapper: connect to the phone over wireless adb, block distracting apps."""
 
 from __future__ import annotations
 
@@ -8,7 +8,12 @@ import time
 
 from config import PHONE_IP, ADB_PORT, ADB_PATH
 
-INSTAGRAM = "com.instagram.android"
+DISTRACTIONS = (
+    "com.instagram.android",
+    "com.reddit.frontpage",
+    "com.google.android.youtube",
+    "app.revanced.android.youtube",
+)
 
 # What adb prints when the transport is gone. It exits non-zero, but the message
 # is on stderr and the wording varies by version, so match loosely.
@@ -85,25 +90,59 @@ class ADB:
 
     # --- app control ------------------------------------------------------
 
-    def toggle_instagram(self) -> bool:
-        """Flip Instagram between blocked and available.
+    def toggle_distractions(self) -> bool:
+        """Flip the distracting apps between blocked and available, together.
 
-        Returns True if it is now blocked, False if it is now usable.
+        If any of them is blocked, all of them are unblocked; otherwise all of
+        them are blocked. Returns True if they are now blocked, False if they
+        are now usable.
         """
-        blocked = self._is_blocked()
-        verb = "unsuspend" if blocked else "suspend"
-        out = self._shell(f"pm {verb} --user {self.user_id} {INSTAGRAM}")
-        if "error" in out.lower() or "unknown command" in out.lower():
-            raise ADBError(f"Failed to {verb} Instagram: {out}")
-        return not blocked
+        states = self._blocked_states()
+        want = not any(states.values())
+        verb = "suspend" if want else "unsuspend"
 
-    def _is_blocked(self) -> bool:
-        out = self._shell(f"dumpsys package {INSTAGRAM}")
-        for line in out.splitlines():
-            line = line.strip()
-            if line.startswith(f"User {self.user_id}:"):
-                return "suspended=true" in line
-        raise ADBError(f"Could not read the state of {INSTAGRAM} — is it installed?")
+        failed = []
+        for package in states:
+            out = self._shell(f"pm {verb} --user {self.user_id} {package}")
+            if not self._suspend_confirmed(out, want):
+                failed.append(f"{package}: {out.strip() or '(no output)'}")
+        if failed:
+            raise ADBError(f"Failed to {verb}:\n  " + "\n  ".join(failed))
+        return want
+
+    @staticmethod
+    def _suspend_confirmed(out: str, want: bool) -> bool:
+        """Did `pm suspend/unsuspend` actually take effect?
+
+        It does not fail loudly when Android refuses a package -- it exits 0 and
+        reports the state it ended up in ("Package com.foo new suspended state:
+        false"), so trust that line over the exit code. Older builds print
+        nothing at all on success; fall back to scanning for an error there.
+        """
+        marker = "new suspended state:"
+        for line in out.lower().splitlines():
+            if marker in line:
+                return line.split(marker, 1)[1].strip() == str(want).lower()
+        return "error" not in out.lower() and "unknown command" not in out.lower()
+
+    def _blocked_states(self) -> dict[str, bool]:
+        """package -> suspended, for every distraction installed on the phone."""
+        states = {}
+        for package in DISTRACTIONS:
+            out = self._shell(f"dumpsys package {package}")
+            for line in out.splitlines():
+                line = line.strip()
+                if line.startswith(f"User {self.user_id}:"):
+                    states[package] = "suspended=true" in line
+                    break
+            else:
+                print(f"  ⚠ no 'User {self.user_id}:' entry for {package} — skipped")
+        if not states:
+            raise ADBError(
+                "Could not read the state of any of "
+                f"{', '.join(DISTRACTIONS)} — are they installed?"
+            )
+        return states
 
     # --- plumbing ---------------------------------------------------------
 
@@ -181,6 +220,6 @@ if __name__ == "__main__":
     phone = ADB()
     phone._buzz()
     try:
-        print("blocked" if phone.toggle_instagram() else "available")
+        print("blocked" if phone.toggle_distractions() else "available")
     except ADBUnavailable as e:
         print("phone away:", e)

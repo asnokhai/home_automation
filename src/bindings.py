@@ -124,9 +124,10 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
             desc="Report the Xbox controller's remaining battery level"),
 
         # -- phone --------------------------------------------------------
-        "toggle_instagram": Action(
-            phone.toggle_instagram,
-            desc="Open or close Instagram on the phone"),
+        "toggle_distractions": Action(
+            phone.toggle_distractions,
+            desc="Block or unblock the distracting apps on the phone "
+                 "(Instagram, Reddit and YouTube)"),
         "set_alarm": Action(
             partial(phone.set_alarm, hour=7, minute=45), say="set_alarm",
             desc="Set an alarm on the phone for 7:45"),
@@ -208,7 +209,7 @@ def build_button_maps(actions):
             "RT":    actions["connect_to_speaker"],
         },
         "controller_mode_phone": {
-            "a":     actions["toggle_instagram"],
+            "a":     actions["toggle_distractions"],
             "LJ-up": actions["set_alarm"],
         },
     }
