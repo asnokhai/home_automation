@@ -98,32 +98,13 @@ class ADB:
         are now usable.
         """
         states = self._blocked_states()
-        want = not any(states.values())
-        verb = "suspend" if want else "unsuspend"
-
-        failed = []
+        blocked = any(states.values())
+        verb = "unsuspend" if blocked else "suspend"
         for package in states:
             out = self._shell(f"pm {verb} --user {self.user_id} {package}")
-            if not self._suspend_confirmed(out, want):
-                failed.append(f"{package}: {out.strip() or '(no output)'}")
-        if failed:
-            raise ADBError(f"Failed to {verb}:\n  " + "\n  ".join(failed))
-        return want
-
-    @staticmethod
-    def _suspend_confirmed(out: str, want: bool) -> bool:
-        """Did `pm suspend/unsuspend` actually take effect?
-
-        It does not fail loudly when Android refuses a package -- it exits 0 and
-        reports the state it ended up in ("Package com.foo new suspended state:
-        false"), so trust that line over the exit code. Older builds print
-        nothing at all on success; fall back to scanning for an error there.
-        """
-        marker = "new suspended state:"
-        for line in out.lower().splitlines():
-            if marker in line:
-                return line.split(marker, 1)[1].strip() == str(want).lower()
-        return "error" not in out.lower() and "unknown command" not in out.lower()
+            if "error" in out.lower() or "unknown command" in out.lower():
+                raise ADBError(f"Failed to {verb} {package}: {out}")
+        return not blocked
 
     def _blocked_states(self) -> dict[str, bool]:
         """package -> suspended, for every distraction installed on the phone."""
@@ -135,8 +116,6 @@ class ADB:
                 if line.startswith(f"User {self.user_id}:"):
                     states[package] = "suspended=true" in line
                     break
-            else:
-                print(f"  ⚠ no 'User {self.user_id}:' entry for {package} — skipped")
         if not states:
             raise ADBError(
                 "Could not read the state of any of "
