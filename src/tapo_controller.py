@@ -11,6 +11,12 @@ BRIGHTNESS_STEP = 5
 MIN_BRIGHTNESS = 5
 MAX_BRIGHTNESS = 100
 
+# Colour temperature in kelvin: low is warm and yellow, high is cold and blue.
+COLOR_TEMP_STEP = 250
+MIN_COLOR_TEMP = 2500
+MAX_COLOR_TEMP = 6500
+DEFAULT_COLOR_TEMP = 4000
+
 
 class TapoController:
     def __init__(self):
@@ -19,6 +25,7 @@ class TapoController:
         self._light_ips = {}
         self.night_mode = False
         self.brightness = MAX_BRIGHTNESS
+        self.color_temp = DEFAULT_COLOR_TEMP
 
     async def connect_to_lights(self):
         """Connect to all lights. Call this after creating the instance."""
@@ -50,9 +57,9 @@ class TapoController:
         """Apply current mode settings to a light. Also turns it on."""
         if self.night_mode:
             await device.set_hue_saturation(0, 100)
-            await device.set_brightness(self.brightness)
+            await device.set_brightness(MAX_BRIGHTNESS)
         else:
-            await device.set_color_temperature(4000)
+            await device.set_color_temperature(self.color_temp)
             await device.set_brightness(self.brightness)
 
     async def toggle(self, name):
@@ -112,6 +119,46 @@ class TapoController:
             for n in self._lights
         ))
         print(f"Brightness: {self.brightness}%")
+
+    async def increase_warmth(self):
+        """Step the lights one notch warmer (more yellow)."""
+        await self._change_color_temp(-COLOR_TEMP_STEP)
+
+    async def decrease_warmth(self):
+        """Step the lights one notch cooler (less yellow)."""
+        await self._change_color_temp(COLOR_TEMP_STEP)
+
+    async def _change_color_temp(self, delta):
+        """Step the stored colour temperature and push it to the lights that are on.
+
+        Like brightness, lights that are off stay off and pick the new value up
+        from _apply_mode when toggled on. Night mode is left alone entirely --
+        it paints the lights red with hue/saturation, and setting a colour
+        temperature would drop them straight back out of it -- so the new value
+        is only stored and takes effect on the return to day mode.
+        """
+        new = max(MIN_COLOR_TEMP, min(MAX_COLOR_TEMP, self.color_temp + delta))
+        if new == self.color_temp:
+            print(f"Colour temperature: {self.color_temp}K "
+                  f"({'coldest' if delta > 0 else 'warmest'})")
+            return
+
+        self.color_temp = new
+
+        if self.night_mode:
+            print(f"Colour temperature: {self.color_temp}K (night mode, applied in day mode)")
+            return
+
+        async def set_if_on(device):
+            info = await device.get_device_info()
+            if info.device_on:
+                await device.set_color_temperature(self.color_temp)
+
+        await asyncio.gather(*(
+            self._with_reconnect(n, set_if_on)
+            for n in self._lights
+        ))
+        print(f"Colour temperature: {self.color_temp}K")
 
     async def toggle_night_mode(self):
         """Toggle between night and day mode. Applies to all lights that are currently on."""
