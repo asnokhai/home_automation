@@ -31,7 +31,7 @@ async def run_action(action: Action, sound, args=None):
     already fully bound -- so it defaults to no arguments.
     """
     try:
-        sound.play()
+        sound.play_click()
         result = action.fn(**(args or {}))
         if asyncio.iscoroutine(result):
             result = await result
@@ -231,7 +231,7 @@ def build_button_maps(actions):
         },
         "controller_mode_phone": {
             "a":     actions["toggle_distractions"],
-            "LJ-up": actions["set_alarm"],
+            "b": actions["set_alarm"],
         },
     }
 

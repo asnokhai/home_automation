@@ -92,12 +92,17 @@ class VoiceAssistant:
             if score < wakeword.THRESHOLD:
                 continue
 
+            self.sound.play_voice_assistant_activated()
             self.busy = True
             self.oww.reset()
             print(f"  Wake word detected ({score:.2f})")
+
             try:
                 action_name, args, reply = await loop.run_in_executor(
-                    None, self._listen_and_think)
+                    None, self._listen_and_think
+                )
+
+                self.sound.play_voice_assistant_deactivated()
 
                 if action_name:
                     print(f"  → {action_name}{args or ''}")

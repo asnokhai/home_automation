@@ -38,7 +38,10 @@ PHRASES = {
 class SoundPlayer:
     def __init__(self):
         pygame.mixer.init()
-        self._click = pygame.mixer.Sound("./resources/button-click.wav")
+        self._click_sound = pygame.mixer.Sound("./resources/button-click.wav")
+        self._voice_assistant_activate_sound = pygame.mixer.Sound("./resources/voice_assistant_activated.wav")
+        self._voice_assistant_deactivate_sound = pygame.mixer.Sound("./resources/voice_assistant_deactivated.wav")
+
         self._speech = {}
         self._generate_missing()
         self._load_speech()
@@ -68,9 +71,17 @@ class SoundPlayer:
         print(f"  Loaded {len(self._speech)} speech sounds")
         print(os.path.abspath(SPEECH_DIR), os.listdir(SPEECH_DIR))
 
-    def play(self):
+    def play_click(self):
         """Play the button click sound."""
-        self._click.play()
+        self._click_sound.play()
+
+    def play_voice_assistant_activated(self):
+        """Play the activate voice assistant sound."""
+        self._voice_assistant_activate_sound.play()
+
+    def play_voice_assistant_deactivated(self):
+        """Play the deactivate voice assistant sound."""
+        self._voice_assistant_deactivate_sound.play()
 
     def say(self, key):
         """Play a pre-generated speech clip by key, e.g. 'kitchen_on'."""
