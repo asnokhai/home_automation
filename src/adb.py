@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import shlex
 import subprocess
 import time
@@ -46,7 +47,12 @@ class ADB:
         self.max_backoff = max_backoff
         self._fails = 0
         self._retry_after = 0.0
-        self.connect()  # best effort; never fatal
+        self.blocked: bool | None = None  # what we want; None until first determined
+        self._synced = False              # is `blocked` live on the phone?
+        try:
+            self.connect()  # best effort; never fatal
+        except ADBError:
+            pass
 
     # --- connection management -------------------------------------------
 
@@ -93,18 +99,65 @@ class ADB:
     def toggle_distractions(self) -> bool:
         """Flip the distracting apps between blocked and available, together.
 
-        If any of them is blocked, all of them are unblocked; otherwise all of
-        them are blocked. Returns True if they are now blocked, False if they
-        are now usable.
+        Works with the phone away: the desired state flips regardless, and
+        `sync()` pushes it onto the phone once it is reachable again. Returns
+        True if they are now (meant to be) blocked, False if usable.
         """
-        states = self._blocked_states()
-        blocked = any(states.values())
-        verb = "unsuspend" if blocked else "suspend"
-        for package in states:
+        if self.blocked is None:
+            # First toggle of this run: take the phone's own state as the
+            # starting point when we can read it, otherwise assume usable.
+            try:
+                self.blocked = any(self._blocked_states().values())
+            except ADBError:
+                self.blocked = False
+
+        self.blocked = not self.blocked
+        self._synced = False
+        try:
+            self._apply_block_state()
+        except ADBError as e:
+            print(f"  phone away, will {'block' if self.blocked else 'unblock'} "
+                  f"on reconnect: {e}")
+        return self.blocked
+
+    def _apply_block_state(self) -> None:
+        """Push `self.blocked` onto the phone. Raises if it can't be done."""
+        verb = "suspend" if self.blocked else "unsuspend"
+        for package in self._blocked_states():
             out = self._shell(f"pm {verb} --user {self.user_id} {package}")
             if "error" in out.lower() or "unknown command" in out.lower():
                 raise ADBError(f"Failed to {verb} {package}: {out}")
-        return not blocked
+        self._synced = True
+
+    def sync(self) -> bool:
+        """Re-impose the desired block state. True when nothing is pending."""
+        if self.blocked is None or self._synced:
+            return True
+        if not self.connect():
+            return False
+        try:
+            self._apply_block_state()
+        except ADBError as e:
+            print(f"  phone: could not apply block state: {e}")
+            return False
+        print(f"  phone: distractions {'blocked' if self.blocked else 'unblocked'}")
+        return True
+
+    async def watch(self, interval: float = 10.0) -> None:
+        """Poll for the phone coming back and re-impose the desired state.
+
+        Every adb call blocks, so the work happens off the event loop, and
+        nothing may escape: main gathers this beside the controller and voice
+        loops without return_exceptions.
+        """
+        while True:
+            await asyncio.sleep(interval)
+            if self.blocked is None or self._synced:
+                continue
+            try:
+                await asyncio.to_thread(self.sync)
+            except Exception as e:
+                print(f"  ⚠ phone watcher: {e}")
 
     def _blocked_states(self) -> dict[str, bool]:
         """package -> suspended, for every distraction installed on the phone."""
