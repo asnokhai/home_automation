@@ -87,6 +87,10 @@ class SpotifyPlayer:
             self._volume_target = target["volume_percent"]
         print(f"Playback moved to: {target['name']}")
 
+    def get_playback_state(self):
+        """Raw playback state (device, track, is_playing, progress_ms), or None."""
+        return self._sp.current_playback()
+
     def _change_volume(self, delta):
         """"Change the volume of the device by delta."""
         playback = self._sp.current_playback()

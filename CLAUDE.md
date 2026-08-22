@@ -6,6 +6,8 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Never commit, push, or create branches yourself. Leave changes in the working tree and let the user review and commit them.
 
+Always write changes to the main worktree (`C:/coding_projects/home_automation`), never to a separate worktree, unless the user explicitly asks for one. `.claude/worktrees/` holds side worktrees for other branches — leave them alone.
+
 ## Running
 
 `main.py` is started from inside `src/`, because modules import each other flat (`from bindings import ...`, `from config import ...`) with no package prefix:
