@@ -1,0 +1,175 @@
+{
+  "_version" : "2.0.0",
+  "_songSampleCount" : 16950324,
+  "_songFrequency" : 48000,
+  "_regions" : [
+    {
+      "_startSampleIndex" : 0,
+      "_endSampleIndex" : 78545,
+      "_startBeat" : 0,
+      "_endBeat" : 6
+    },
+    {
+      "_startSampleIndex" : 78545,
+      "_endSampleIndex" : 91067,
+      "_startBeat" : 6,
+      "_endBeat" : 7
+    },
+    {
+      "_startSampleIndex" : 91067,
+      "_endSampleIndex" : 889612,
+      "_startBeat" : 7,
+      "_endBeat" : 68
+    },
+    {
+      "_startSampleIndex" : 889612,
+      "_endSampleIndex" : 927177,
+      "_startBeat" : 68,
+      "_endBeat" : 71
+    },
+    {
+      "_startSampleIndex" : 927177,
+      "_endSampleIndex" : 1031905,
+      "_startBeat" : 71,
+      "_endBeat" : 79
+    },
+    {
+      "_startSampleIndex" : 1031905,
+      "_endSampleIndex" : 1045619,
+      "_startBeat" : 79,
+      "_endBeat" : 80
+    },
+    {
+      "_startSampleIndex" : 1045619,
+      "_endSampleIndex" : 1294346,
+      "_startBeat" : 80,
+      "_endBeat" : 99
+    },
+    {
+      "_startSampleIndex" : 1294346,
+      "_endSampleIndex" : 1319390,
+      "_startBeat" : 99,
+      "_endBeat" : 101
+    },
+    {
+      "_startSampleIndex" : 1319390,
+      "_endSampleIndex" : 1332481,
+      "_startBeat" : 101,
+      "_endBeat" : 102
+    },
+    {
+      "_startSampleIndex" : 1332481,
+      "_endSampleIndex" : 1346195,
+      "_startBeat" : 102,
+      "_endBeat" : 103
+    },
+    {
+      "_startSampleIndex" : 1346195,
+      "_endSampleIndex" : 1424740,
+      "_startBeat" : 103,
+      "_endBeat" : 109
+    },
+    {
+      "_startSampleIndex" : 1424740,
+      "_endSampleIndex" : 1439140,
+      "_startBeat" : 109,
+      "_endBeat" : 110
+    },
+    {
+      "_startSampleIndex" : 1439140,
+      "_endSampleIndex" : 1464184,
+      "_startBeat" : 110,
+      "_endBeat" : 112
+    },
+    {
+      "_startSampleIndex" : 1464184,
+      "_endSampleIndex" : 1516547,
+      "_startBeat" : 112,
+      "_endBeat" : 116
+    },
+    {
+      "_startSampleIndex" : 1516547,
+      "_endSampleIndex" : 1530262,
+      "_startBeat" : 116,
+      "_endBeat" : 117
+    },
+    {
+      "_startSampleIndex" : 1530262,
+      "_endSampleIndex" : 1556444,
+      "_startBeat" : 117,
+      "_endBeat" : 119
+    },
+    {
+      "_startSampleIndex" : 1556444,
+      "_endSampleIndex" : 1569839,
+      "_startBeat" : 119,
+      "_endBeat" : 120
+    },
+    {
+      "_startSampleIndex" : 1569839,
+      "_endSampleIndex" : 1674566,
+      "_startBeat" : 120,
+      "_endBeat" : 128
+    },
+    {
+      "_startSampleIndex" : 1674566,
+      "_endSampleIndex" : 1712131,
+      "_startBeat" : 128,
+      "_endBeat" : 131
+    },
+    {
+      "_startSampleIndex" : 1712131,
+      "_endSampleIndex" : 1725222,
+      "_startBeat" : 131,
+      "_endBeat" : 132
+    },
+    {
+      "_startSampleIndex" : 1725222,
+      "_endSampleIndex" : 1765408,
+      "_startBeat" : 132,
+      "_endBeat" : 135
+    },
+    {
+      "_startSampleIndex" : 1765408,
+      "_endSampleIndex" : 4750135,
+      "_startBeat" : 135,
+      "_endBeat" : 363
+    },
+    {
+      "_startSampleIndex" : 4750135,
+      "_endSampleIndex" : 4776926,
+      "_startBeat" : 363,
+      "_endBeat" : 365
+    },
+    {
+      "_startSampleIndex" : 4776926,
+      "_endSampleIndex" : 8036562,
+      "_startBeat" : 365,
+      "_endBeat" : 614
+    },
+    {
+      "_startSampleIndex" : 8036562,
+      "_endSampleIndex" : 8063353,
+      "_startBeat" : 614,
+      "_endBeat" : 616
+    },
+    {
+      "_startSampleIndex" : 8063353,
+      "_endSampleIndex" : 13273535,
+      "_startBeat" : 616,
+      "_endBeat" : 1014
+    },
+    {
+      "_startSampleIndex" : 13273535,
+      "_endSampleIndex" : 13313721,
+      "_startBeat" : 1014,
+      "_endBeat" : 1017
+    },
+    {
+      "_startSampleIndex" : 13313721,
+      "_endSampleIndex" : 16950324,
+      "_startBeat" : 1017,
+      "_endBeat" : 1294.796082
+    }
+  ]
+}
