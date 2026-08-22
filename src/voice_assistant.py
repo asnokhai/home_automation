@@ -10,6 +10,7 @@ load_dotenv()
 class VoiceAssistant:
     RATE, FRAME = 16000, 1280          # 80 ms
     SILENCE_RMS, SILENCE_SEC, MAX_SEC = 500, 1.5, 15
+    MAX_ACTIONS = 8                    # per utterance, guards against a runaway fan-out
 
     def __init__(self, actions, sound, port=5005):
         self.actions = actions
@@ -62,23 +63,29 @@ class VoiceAssistant:
             text = self.client.audio.transcriptions.create(
                 model="whisper-1", file=fh).text.strip()
         if not text:
-            return None, None, None
+            return [], None
         print(f"  You: {text}")
 
         msg = self.client.chat.completions.create(
             model="gpt-4o-mini",
             tools=self.tools,
+            parallel_tool_calls=True,
             messages=[
                 {"role": "system", "content":
-                 "You control a smart home. Call a function if the user asks for an "
-                 "action. Otherwise answer in one or two short sentences."},
+                 "You control a smart home. Call a function for each action the user "
+                 "asks for -- call several in one turn when they ask for several "
+                 "things. Only call functions that exist. Otherwise answer in one or "
+                 "two short sentences."},
                 {"role": "user", "content": text},
             ]).choices[0].message
 
-        if msg.tool_calls:
-            call = msg.tool_calls[0].function
-            return call.name, json.loads(call.arguments or "{}"), None
-        return None, None, msg.content
+        calls = [(c.function.name, json.loads(c.function.arguments or "{}"))
+                 for c in (msg.tool_calls or [])]
+        if len(calls) > self.MAX_ACTIONS:
+            dropped = [name for name, _ in calls[self.MAX_ACTIONS:]]
+            print(f"  ⚠ Too many actions, skipping: {', '.join(dropped)}")
+            calls = calls[:self.MAX_ACTIONS]
+        return calls, msg.content
 
     # --- main loop -----------------------------------------------------
     async def run(self):
@@ -98,16 +105,23 @@ class VoiceAssistant:
             print(f"  Wake word detected ({score:.2f})")
 
             try:
-                action_name, args, reply = await loop.run_in_executor(
+                calls, reply = await loop.run_in_executor(
                     None, self._listen_and_think
                 )
 
                 self.sound.play_voice_assistant_deactivated()
 
-                if action_name:
-                    print(f"  → {action_name}{args or ''}")
-                    await self.handler(self.actions[action_name], args)
-                elif reply:
+                # Sequential on purpose: the wrappers are not reentrant, and
+                # "everything off, then the kitchen on" only works in order.
+                for name, args in calls:
+                    action = self.actions.get(name)
+                    if action is None:
+                        print(f"  ⚠ Unknown action: {name}")
+                        continue
+                    print(f"  → {name}{args or ''}")
+                    await self.handler(action, args)
+
+                if reply:
                     print(f"  Bot: {reply}")
                     await loop.run_in_executor(None, self._speak, reply)
             except Exception as e:
