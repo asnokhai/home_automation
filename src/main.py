@@ -13,6 +13,7 @@ from xbox_controller.xbox_controller import XboxController
 from xbox_controller.xbox_controller_battery import XboxControllerBattery
 from tapo_controller import TapoController
 from bluetooth import Bluetooth
+from timers import Timers
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -39,12 +40,13 @@ async def main():
     tapo = TapoController()
     bluetooth = Bluetooth()
     phone = ADB()
+    timers = Timers(sound)
 
     print("BATTERY startup probe:", controller_battery.read())
 
     await tapo.connect_to_lights()
 
-    actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone)
+    actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
@@ -68,6 +70,7 @@ async def main():
             controller.run(),
             stdin_reader(commands, on_action),
             voice.run(),
+            phone.watch(),
         )
     except KeyboardInterrupt:
         pass
