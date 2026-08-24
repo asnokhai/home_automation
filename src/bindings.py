@@ -24,7 +24,7 @@ class Action:
 
 
 async def run_action(action: Action, sound, args=None):
-    """Play the click sound, run the bound function, then speak if configured.
+    """Play the click sound_player, run the bound function, then speak if configured.
 
     `args` carries the arguments the voice model filled in for an Action with
     `params`. Buttons and terminal keywords pass nothing -- their actions are
@@ -43,13 +43,14 @@ async def run_action(action: Action, sound, args=None):
         print(f"  ⚠ Error: {e}")
 
 
-def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone):
+def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
         "select_controller_mode_0": Action(partial(controller.select_mode, 0), say="controller_mode_lights"),
         "select_controller_mode_1": Action(partial(controller.select_mode, 1), say="controller_mode_bluetooth"),
         "select_controller_mode_2": Action(partial(controller.select_mode, 2), say="controller_mode_phone"),
+        "select_controller_mode_3": Action(partial(controller.select_mode, 3), say="controller_mode_misc"),
 
         # -- lights -------------------------------------------------------
         "kitchen": Action(
@@ -155,6 +156,42 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
             partial(phone.set_alarm, hour=7, minute=45), say="set_alarm",
             desc="Set an alarm on the phone for 7:45"),
 
+        # -- timers -------------------------------------------------------
+        "set_timer": Action(
+            timers.set_timer, say=True,
+            desc="Set a countdown timer. Convert whatever duration the user said "
+                 "into seconds. If they did not name the timer, use a short name "
+                 "based on what it is for, or just 'timer'.",
+            params={
+                "name": {
+                    "type": "string",
+                    "description": "Short name for the timer, e.g. 'pasta' or "
+                                   "'laundry'",
+                },
+                "duration_seconds": {
+                    "type": "number",
+                    "description": "How long the timer runs, in seconds",
+                },
+            }),
+        "list_timers": Action(
+            timers.list_timers, say=True,
+            desc="Report which timers are running and how much time is left on each"),
+        "cancel_timer": Action(
+            timers.cancel_timer, say=True,
+            desc="Cancel one timer by name",
+            params={
+                "name": {
+                    "type": "string",
+                    "description": "Name of the timer to cancel",
+                },
+            }),
+        "cancel_all_timers": Action(
+            timers.cancel_all_timers, say=True,
+            desc="Cancel every running timer"),
+        "stop_timer_alarm": Action(
+            timers.stop_alarm, say="timer_stopped",
+            desc="Silence the timer alarm that is currently ringing"),
+
         # -- deliberately voice-hidden ------------------------------------
         "exit": Action(sys.exit),
     }
@@ -204,6 +241,7 @@ def build_button_maps(actions):
         "LJ-up": actions["select_controller_mode_0"],
         "LJ-left": actions["select_controller_mode_1"],
         "LJ-right": actions["select_controller_mode_2"],
+        "LJ-down": actions["select_controller_mode_3"],
     }
 
     modes = {
@@ -241,6 +279,10 @@ def build_button_maps(actions):
             "a":     actions["toggle_distractions"],
             "b": actions["set_alarm"],
         },
+        "misc_mode": {
+            "a": actions["stop_timer_alarm"]
+        }
+
     }
 
     return {name: {**common, **bindings} for name, bindings in modes.items()}
