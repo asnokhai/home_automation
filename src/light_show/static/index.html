@@ -1,0 +1,58 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Light show editor</title>
+<link rel="stylesheet" href="/static/editor.css">
+<body>
+<header>
+  <button id="play" title="Space">▶</button>
+  <span class="time"><b id="clock">0:00.00</b> / <span id="total">0:00</span></span>
+  <span class="spacer"></span>
+  <label>zoom <input id="zoom" type="range" min="20" max="400" value="80"></label>
+  <label><input id="preview" type="checkbox"> live bulbs <i id="previewState"></i></label>
+  <label title="How far ahead to send bulb changes, covering their response time">
+    lead <input id="lead" type="number" min="0" max="1000" step="20" value="300"> ms</label>
+  <span id="status">saved</span>
+</header>
+
+<div id="stage">
+  <div id="ruler"></div>
+  <div id="waveBox"><canvas id="wave" height="110"></canvas></div>
+  <div id="lanes"></div>
+  <div id="playhead"></div>
+</div>
+
+<footer id="inspector" hidden>
+  <b id="selTitle">cue</b>
+  <label>level <input id="selLevel" type="range" min="0" max="100" step="5">
+         <output id="selLevelOut"></output></label>
+  <label>length <input id="selDur" type="number" min="0.05" max="120" step="0.05"> s</label>
+  <label>fade in <input id="selFade" type="number" min="0" max="10" step="0.1" value="0"> s</label>
+  <label>fade out <input id="selFadeOut" type="number" min="0" max="10" step="0.1" value="0"> s</label>
+  <label>colour
+    <select id="selMode"><option value="hs">colour</option><option value="ct">white</option></select>
+  </label>
+  <span id="hsFields">
+    <input id="selHue" type="range" min="0" max="360"><output id="selHueOut"></output>
+    <input id="selSat" type="range" min="0" max="100"><output id="selSatOut"></output>
+  </span>
+  <span id="ctFields" hidden>
+    <input id="selK" type="range" min="2500" max="6500" step="100"><output id="selKOut"></output>
+  </span>
+  <span id="swatch"></span>
+  <button id="selDelete" title="Delete / Backspace">delete</button>
+</footer>
+
+<footer id="looks">
+  <b>saved looks</b>
+  <span id="palette"></span>
+  <button id="saveLook" title="Save the selected note's brightness and colour">save current</button>
+</footer>
+
+<div id="help">
+  <b>click a lane</b> to place a cue ·
+  <b>drag</b> to move it · <b>drag its right edge</b> to set length · <b>space</b> play/pause ·
+  <b>← →</b> nudge 1s · <b>shift+← →</b> 5s ·
+  <b>1-4</b> place on lane 1-4 at the playhead ·
+  <b>del</b> remove selected · <b>click the waveform</b> to jump there<br><b>drag empty space</b> to box-select · <b>shift-click</b> to add · <b>ctrl+C/V/X/D</b> copy, paste at playhead, cut, duplicate · <b>ctrl+A</b> all · <b>esc</b> deselect
+</div>
+<script src="/static/editor.js"></script>
