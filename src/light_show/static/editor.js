@@ -11,6 +11,7 @@ let audio = new Audio("/audio");
 audio.preload = "auto";
 
 const WAVE_HEIGHT = 110;   // taller than the old 64px ribbon
+const BASE = 0, TOP = 1;   // base carries the washes, top interrupts them
 const DEFAULT = { level: 85, fade: 0, fadeOut: 0, dur: 1.0, color: ["hs", 210, 90] };
 
 // ── colour ────────────────────────────────────────────────────────
@@ -31,6 +32,8 @@ async function boot() {
   state = await (await fetch("/api/state")).json();
   if (!show.cues) show.cues = [];
   if (!show.presets) show.presets = [];
+  $("bpm").value = show.bpm || "";
+  $("beatOffset").value = show.beatOffset || 0;
   show.cues.forEach((n) => { if (n.id == null) n.id = nextId(); });
   idSeq = Math.max(idSeq, ...show.cues.map((n) => n.id + 1), 1);
   renderPalette();
@@ -82,6 +85,7 @@ async function loadWave() {
     waveData = null;
   }
   paintWave();
+  if (waveData && !show.bpm) detectBeat();
 }
 
 function paintWave() {
@@ -130,6 +134,86 @@ function repaintWave() {
   requestAnimationFrame(() => { wavePending = false; paintWave(); });
 }
 
+// ── the beat grid ─────────────────────────────────────────────────
+// Detected from the decoded audio the waveform already holds: an onset envelope
+// (rising energy between short frames), autocorrelated to find the period, then
+// swept for the phase that lands most onset energy on the grid. Both numbers are
+// editable afterwards, because detection reliably finds the tempo and sometimes
+// finds it at half or double speed.
+
+function detectBeat() {
+  if (!waveData) return flash("no audio to analyse");
+  const { samples, rate } = waveData;
+  const hop = 512, win = 1024;
+  const frames = Math.floor((samples.length - win) / hop);
+  if (frames < 64) return flash("too short to analyse");
+
+  const env = new Float32Array(frames);
+  let previous = 0;
+  for (let f = 0; f < frames; f++) {
+    let sum = 0;
+    const a = f * hop;
+    for (let i = a; i < a + win; i += 2) sum += samples[i] * samples[i];
+    const energy = Math.sqrt(sum);
+    env[f] = Math.max(0, energy - previous);      // rising edges only
+    previous = energy;
+  }
+
+  const fps = rate / hop;
+  let best = -1, bpm = 120;
+  for (let candidate = 70; candidate <= 180; candidate += 0.25) {
+    const lag = Math.round((60 / candidate) * fps);
+    if (lag < 2 || lag >= frames) continue;
+    let score = 0;
+    for (let i = 0; i + lag < frames; i++) score += env[i] * env[i + lag];
+    score /= frames - lag;                        // do not favour short lags
+    if (score > best) { best = score; bpm = candidate; }
+  }
+
+  const period = (60 / bpm) * fps;
+  let bestPhase = 0, bestScore = -1;
+  for (let phase = 0; phase < period; phase += 0.25) {
+    let score = 0;
+    for (let k = 0; ; k++) {
+      const idx = Math.round(phase + k * period);
+      if (idx >= frames) break;
+      score += env[idx];
+    }
+    if (score > bestScore) { bestScore = score; bestPhase = phase; }
+  }
+
+  show.bpm = +bpm.toFixed(2);
+  show.beatOffset = +(bestPhase * hop / rate).toFixed(3);
+  $("bpm").value = show.bpm;
+  $("beatOffset").value = show.beatOffset;
+  paintGrid();
+  save();
+  flash(`${show.bpm} bpm, first beat ${show.beatOffset.toFixed(2)}s`);
+}
+
+// The grid is regular, so CSS gradients draw it for free — no elements, and it
+// scrolls and zooms with the lanes.
+function paintGrid() {
+  const lanes = $("lanes");
+  if (!show.bpm) { lanes.style.backgroundImage = "none"; return; }
+  const beat = (60 / show.bpm) * pps;
+  const offset = (show.beatOffset || 0) * pps;
+  lanes.style.backgroundImage =
+    `repeating-linear-gradient(90deg, #ffffff26 0 1px, transparent 1px ${4 * beat}px),` +
+    `repeating-linear-gradient(90deg, #ffffff10 0 1px, transparent 1px ${beat}px)`;
+  lanes.style.backgroundPosition = `${offset}px 0, ${offset}px 0`;
+}
+
+// Holding shift bypasses this, as does setting the selector to "off".
+function snap(t, e) {
+  if ((e && e.shiftKey) || !show.bpm) return t;
+  const division = +$("snap").value;
+  if (!division) return t;
+  const period = (60 / show.bpm) * division;
+  const offset = show.beatOffset || 0;
+  return Math.max(0, +(Math.round((t - offset) / period) * period + offset).toFixed(3));
+}
+
 // ── building the lanes ────────────────────────────────────────────
 function build() {
   const width = Math.max(1, Math.round((show.duration || audio.duration || 300) * pps));
@@ -148,21 +232,31 @@ function build() {
 
   $("lanes").innerHTML = "";
   show.lights.forEach((light) => {
-    const lane = document.createElement("div");
-    lane.className = "lane";
-    lane.dataset.light = light;
-    lane.style.width = width + "px";
-    lane.innerHTML = `<span class="name">${light}</span>`;
-    lane.addEventListener("mousedown", (e) => onLaneDown(e, light, lane));
-    $("lanes").appendChild(lane);
+    const group = document.createElement("div");
+    group.className = "group";
+    group.style.width = width + "px";
+    [TOP, BASE].forEach((layer) => {          // top row above the base row
+      const lane = document.createElement("div");
+      lane.className = "lane " + (layer === TOP ? "top" : "base");
+      lane.dataset.light = light;
+      lane.dataset.layer = layer;
+      lane.style.width = width + "px";
+      lane.innerHTML = `<span class="name">${layer === TOP ? light : ""}`
+                     + `<i>${layer === TOP ? "top" : "base"}</i></span>`;
+      lane.addEventListener("mousedown", (e) => onLaneDown(e, lane));
+      group.appendChild(lane);
+    });
+    $("lanes").appendChild(group);
   });
   render();
+  paintGrid();
 }
 
 function render() {
   document.querySelectorAll(".cue").forEach((n) => n.remove());
   show.cues.forEach((note) => {
-    const lane = document.querySelector(`.lane[data-light="${CSS.escape(note.light)}"]`);
+    const lane = document.querySelector(
+      `.lane[data-light="${CSS.escape(note.light)}"][data-layer="${note.layer ?? BASE}"]`);
     if (!lane) return;
     const dur = note.dur ?? DEFAULT.dur;
 
@@ -234,15 +328,15 @@ function rubberBand(e, lane) {
     document.removeEventListener("mousemove", move);
     document.removeEventListener("mouseup", up);
     box.remove();
-    if (!moved) place(lane.dataset.light,
-                      clamp((ev.clientX - laneLeft) / pps, 0, show.duration || 1e9));
+    if (!moved) place(lane, snap(clamp((ev.clientX - laneLeft) / pps,
+                                       0, show.duration || 1e9), ev));
   };
   document.addEventListener("mousemove", move);
   document.addEventListener("mouseup", up);
   e.preventDefault();
 }
 
-function onLaneDown(e, light, lane) {
+function onLaneDown(e, lane) {
   const hit = e.target.closest(".cue");
   if (!hit) return rubberBand(e, lane);
 
@@ -264,10 +358,11 @@ function onLaneDown(e, light, lane) {
   const move = (ev) => {
     const px = ev.clientX - left();
     if (resizing) {
-      const dur = Math.max(0.05, +((px / pps) - note.t).toFixed(3));
+      const edge = snap(px / pps, ev);
+      const dur = Math.max(0.05, +(edge - note.t).toFixed(3));
       chosen().forEach((n) => { n.dur = dur; });
     } else {
-      const head = Math.max(0, (px - grab) / pps);
+      const head = Math.max(0, snap((px - grab) / pps, ev));
       if (group.every(({ dt }) => head + dt >= 0))
         group.forEach(({ n, dt }) => { n.t = +(head + dt).toFixed(3); });
     }
@@ -283,11 +378,13 @@ function onLaneDown(e, light, lane) {
   e.preventDefault();
 }
 
-function place(light, t) {
-  const last = show.cues.filter((c) => c.light === light && c.t <= t)
+function place(lane, t) {
+  const light = lane.dataset.light, layer = +lane.dataset.layer;
+  const last = show.cues.filter((c) => c.light === light &&
+                                (c.layer ?? BASE) === layer && c.t <= t)
                         .sort((a, b) => a.t - b.t).pop();
   const note = {
-    id: nextId(), t: +t.toFixed(3), dur: DEFAULT.dur, light,
+    id: nextId(), t: +t.toFixed(3), dur: DEFAULT.dur, light, layer,
     level: last ? last.level : DEFAULT.level,
     color: last && last.color ? last.color.slice() : DEFAULT.color.slice(),
     fade: DEFAULT.fade,
@@ -388,7 +485,9 @@ function save() {
       method: "PUT", headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ cues: show.cues, duration: show.duration,
                              offset: show.offset || 0,
-                             presets: show.presets || [] }),
+                             presets: show.presets || [],
+                             bpm: show.bpm || 0,
+                             beatOffset: show.beatOffset || 0 }),
     });
     const info = await res.json();
     dirty = false;
@@ -489,6 +588,8 @@ function applyLook(look) {
 function saveLook() {
   const from = chosen()[0] || DEFAULT;
   if (!show.presets) show.presets = [];
+  $("bpm").value = show.bpm || "";
+  $("beatOffset").value = show.beatOffset || 0;
   show.cues.forEach((n) => { if (n.id == null) n.id = nextId(); });
   idSeq = Math.max(idSeq, ...show.cues.map((n) => n.id + 1), 1);
   const look = { level: from.level, color: (from.color || DEFAULT.color).slice() };
@@ -566,7 +667,7 @@ window.addEventListener("resize", repaintWave);
 $("zoom").addEventListener("input", (e) => {
   const at = audio.currentTime;
   pps = +e.target.value;
-  build(); repaintWave();
+  build(); repaintWave(); paintGrid();
   $("stage").scrollLeft = at * pps - $("stage").clientWidth / 2;
   repaintWave();
 });
@@ -591,6 +692,14 @@ $("selSat").addEventListener("input", (e) => edit((c) =>
 $("selK").addEventListener("input", (e) => edit((c) => c.color = ["ct", +e.target.value]));
 $("selDelete").addEventListener("click", remove);
 $("saveLook").addEventListener("click", saveLook);
+$("detect").addEventListener("click", detectBeat);
+$("bpm").addEventListener("change", (e) => {
+  show.bpm = +e.target.value || 0; paintGrid(); save();
+});
+$("beatOffset").addEventListener("change", (e) => {
+  show.beatOffset = +e.target.value || 0; paintGrid(); save();
+});
+$("snap").addEventListener("change", () => {});
 
 document.addEventListener("keydown", (e) => {
   if (e.target.matches("input,select")) return;
@@ -616,9 +725,9 @@ document.addEventListener("keydown", (e) => {
   else if (e.code === "Home") seek(0);
   else if (e.key === "Delete" || e.key === "Backspace") { e.preventDefault(); remove(); }
   else if (e.key === "Escape") { selected.clear(); render(); }
-  else if (/^[1-9]$/.test(e.key)) {               // place on lane N at the playhead
-    const light = show.lights[+e.key - 1];
-    if (light) place(light, audio.currentTime);
+  else if (/^[1-8]$/.test(e.key)) {               // place on lane N at the playhead
+    const lane = document.querySelectorAll(".lane")[+e.key - 1];
+    if (lane) place(lane, snap(audio.currentTime, e));
   }
 });
 

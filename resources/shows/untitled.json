@@ -1,0 +1,15 @@
+{
+ "version": 1,
+ "song": "",
+ "audio": "",
+ "track_uri": null,
+ "duration": 0.0,
+ "offset": 0.0,
+ "lights": [
+  "Living Room",
+  "Vibe",
+  "Kitchen",
+  "Bathroom"
+ ],
+ "cues": []
+}

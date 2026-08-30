@@ -87,6 +87,49 @@ class SpotifyPlayer:
             self._volume_target = target["volume_percent"]
         print(f"Playback moved to: {target['name']}")
 
+    def find_track(self, song_name):
+        """The track a search would play, so callers can pin the exact recording.
+
+        play_song searches by name every time, which can land on a different
+        master than the one that was analysed; play_track pins it.
+        """
+        results = self._sp.search(q=song_name, type="track", limit=1)
+        tracks = results["tracks"]["items"]
+        if not tracks:
+            raise LookupError(f"No Spotify results for '{song_name}'")
+        return tracks[0]
+
+    def play_track(self, uri):
+        """Play one exact track URI on the dev kit."""
+        device_id = self._get_device_id()
+        if not device_id:
+            print(f"Device '{SPOTIFY_DEVICE_NAME}' not found.")
+            return
+
+        self._sp.transfer_playback(device_id, force_play=False)
+        self._sp.start_playback(device_id=device_id, uris=[uri])
+        self._paused = False
+        self._volume_target = self._get_volume()
+
+    def get_audio_analysis(self, track_id):
+        """Spotify's own analysis of a track: tempo, sections, segments, beats.
+
+        Spotify deprecated this endpoint and cut it off for apps registered after
+        November 2024, so translate the refusal into something actionable instead
+        of letting a bare HTTP error surface.
+        """
+        try:
+            return self._sp.audio_analysis(track_id)
+        except spotipy.SpotifyException as exc:
+            if exc.http_status in (401, 403, 404):
+                raise PermissionError(
+                    "Spotify refused the audio-analysis endpoint "
+                    f"(HTTP {exc.http_status}). It is deprecated and unavailable to "
+                    "apps registered after November 2024 — this show needs either an "
+                    "older app's credentials or a cached analysis file."
+                ) from exc
+            raise
+
     def get_playback_state(self):
         """Raw playback state (device, track, is_playing, progress_ms), or None."""
         return self._sp.current_playback()

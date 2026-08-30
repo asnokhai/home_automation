@@ -1,6 +1,7 @@
 notes.txt
 src/config.py
 resources/speech/
+resources/audio/
 .spotify_token_cache
 arduino_code/wifi_mic_i2s/wifi_mic_i2s.ino
 

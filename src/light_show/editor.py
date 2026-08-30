@@ -205,6 +205,8 @@ class Handler(BaseHTTPRequestHandler):
             Handler.show.offset = data.get("offset", Handler.show.offset)
             Handler.show.duration = data.get("duration", Handler.show.duration)
             Handler.show.presets = data.get("presets", Handler.show.presets)
+            Handler.show.bpm = data.get("bpm", Handler.show.bpm)
+            Handler.show.beat_offset = data.get("beatOffset", Handler.show.beat_offset)
             path = Handler.show.save()
             return self._json({"saved": os.path.relpath(path, PROJECT_ROOT),
                                "cues": len(Handler.show.cues)})
@@ -233,13 +235,18 @@ def serve(name="untitled", port=PORT, open_browser=True, song=None, audio=None,
     show.name = name
 
     # a new show has no song yet, and hand-editing JSON is not "easy to use"
+    before = show.to_dict()
     if song:
         show.song = song
     if audio:
         show.audio = os.path.relpath(os.path.abspath(audio), PROJECT_ROOT)             if os.path.isabs(audio) else audio
     if track_uri:
         show.track_uri = track_uri
-    if song or audio or track_uri or not os.path.isfile(path):
+
+    # only write when something actually changed: the settings above are passed
+    # on every launch, and rewriting a show full of work just to restate them is
+    # a needless risk
+    if not os.path.isfile(path) or show.to_dict() != before:
         show.save()
 
     if show.audio and not os.path.isfile(os.path.join(PROJECT_ROOT, show.audio)):

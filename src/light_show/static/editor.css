@@ -37,15 +37,21 @@ output { font-variant-numeric: tabular-nums; min-width: 34px; color: #e8eaed; }
    far wider than the browser's maximum canvas, which paints as blank white. */
 #waveBox { position: relative; height: 110px; background: #12141a; }
 #wave { position: absolute; top: 0; left: 0; display: block; }
-.lane { position: relative; height: 58px; border-bottom: 1px solid #23272f; }
-.lane:nth-child(odd) { background: #171a20; }
+/* one light = a top row and a base row, kept together */
+.group { border-bottom: 2px solid #2b3038; }
+.lane { position: relative; height: 34px; }
+.lane.top { background: #1b1f27; }
+.lane.base { background: #171a20; border-top: 1px dashed #262b34; }
+
 .lane .name {
   position: sticky; left: 0; z-index: 3; display: inline-block;
-  padding: 3px 8px; font-size: 11px; color: #8b93a1;
-  background: #1c1f25cc; border-radius: 0 0 6px 0;
+  padding: 1px 8px; font-size: 11px; color: #8b93a1;
+  background: #1c1f25e6; border-radius: 0 0 6px 0; white-space: nowrap;
 }
+.lane .name i { font-style: normal; color: #5b6473; margin-left: 6px; }
+#lanes { background-repeat: repeat; }
 .cue {
-  position: absolute; top: 16px; height: 30px; min-width: 6px;
+  position: absolute; top: 5px; height: 24px; min-width: 6px;
   border-radius: 4px; border: 1px solid #0008; cursor: grab;
   box-shadow: 0 1px 3px #0005; overflow: hidden;
 }
@@ -91,4 +97,9 @@ output { font-variant-numeric: tabular-nums; min-width: 34px; color: #e8eaed; }
 #band {
   position: fixed; z-index: 9; pointer-events: none;
   border: 1px solid #6ea8fe; background: #6ea8fe22; border-radius: 3px;
+}
+
+select {
+  background: #14161a; color: #e8eaed; border: 1px solid #3a4150;
+  border-radius: 5px; padding: 3px 6px; font: inherit;
 }

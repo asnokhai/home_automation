@@ -8,6 +8,19 @@
   <span class="time"><b id="clock">0:00.00</b> / <span id="total">0:00</span></span>
   <span class="spacer"></span>
   <label>zoom <input id="zoom" type="range" min="20" max="400" value="80"></label>
+  <label title="Detected from the audio; correct it here if it lands on half or double time">
+    bpm <input id="bpm" type="number" min="0" max="300" step="0.25"></label>
+  <label title="Where the first beat falls">
+    beat 1 <input id="beatOffset" type="number" min="0" max="60" step="0.01"> s</label>
+  <button id="detect" title="Find the tempo and downbeat in the audio">detect</button>
+  <label title="Hold shift while dragging to ignore the grid">snap
+    <select id="snap">
+      <option value="4">bar</option>
+      <option value="1">beat</option>
+      <option value="0.5" selected>1/2</option>
+      <option value="0.25">1/4</option>
+      <option value="0">off</option>
+    </select></label>
   <label><input id="preview" type="checkbox"> live bulbs <i id="previewState"></i></label>
   <label title="How far ahead to send bulb changes, covering their response time">
     lead <input id="lead" type="number" min="0" max="1000" step="20" value="300"> ms</label>
@@ -52,7 +65,7 @@
   <b>click a lane</b> to place a cue ·
   <b>drag</b> to move it · <b>drag its right edge</b> to set length · <b>space</b> play/pause ·
   <b>← →</b> nudge 1s · <b>shift+← →</b> 5s ·
-  <b>1-4</b> place on lane 1-4 at the playhead ·
+  <b>1-8</b> place on lane 1-8 at the playhead · <b>shift</b> while dragging ignores the grid ·
   <b>del</b> remove selected · <b>click the waveform</b> to jump there<br><b>drag empty space</b> to box-select · <b>shift-click</b> to add · <b>ctrl+C/V/X/D</b> copy, paste at playhead, cut, duplicate · <b>ctrl+A</b> all · <b>esc</b> deselect
 </div>
 <script src="/static/editor.js"></script>
