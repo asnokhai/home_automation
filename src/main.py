@@ -14,6 +14,7 @@ from xbox_controller.xbox_controller_battery import XboxControllerBattery
 from tapo_controller import TapoController
 from bluetooth import Bluetooth
 from timers import Timers
+from trello_board import TrelloBoard
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -41,12 +42,16 @@ async def main():
     bluetooth = Bluetooth()
     phone = ADB()
     timers = Timers(sound)
+    # Constructing this touches no network -- the board is fetched on first use,
+    # so a missing token or a Trello outage cannot stop the assistant booting.
+    trello = TrelloBoard()
 
     print("BATTERY startup probe:", controller_battery.read())
 
     await tapo.connect_to_lights()
 
-    actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers)
+    actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
+                            timers, trello)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 

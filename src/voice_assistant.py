@@ -1,5 +1,6 @@
 import asyncio, json, socket, subprocess, wave
 import traceback
+from datetime import datetime
 import numpy as np
 from openai import OpenAI
 import wakeword
@@ -75,7 +76,12 @@ class VoiceAssistant:
                  "You control a smart home. Call a function for each action the user "
                  "asks for -- call several in one turn when they ask for several "
                  "things. Only call functions that exist. Otherwise answer in one or "
-                 "two short sentences."},
+                 "two short sentences.\n"
+                 # Dated per request, not at startup: this process stays up for
+                 # days, so a baked-in date would quietly drift and every
+                 # "tomorrow" would land on the wrong day.
+                 f"Today is {datetime.now().strftime('%A %d %B %Y')}. Use it to turn "
+                 "any deadline the user speaks into an ISO 8601 date."},
                 {"role": "user", "content": text},
             ]).choices[0].message
 

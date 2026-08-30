@@ -22,7 +22,7 @@ On the Pi it runs as a systemd user service; `scripts/print_output.sh` tails it:
 journalctl --user -u home_automation.service -f
 ```
 
-`src/config.py` is gitignored and must exist before anything imports. It holds plain module-level constants: `TAPO_EMAIL`, `TAPO_PASSWORD`, `KITCHEN_LIGHT_IP`, `BATHROOM_LIGHT_IP`, `LIVING_ROOM_LIGHT_IP`, `VIBE_LIGHT_IP`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_DEVICE_NAME`, `SPEAKERS_MAC_ADDRESS`, `XBOX_CONTROLLER_MAC_ADDRESS`, `PHONE_IP`, `ADB_PORT`, `ADB_PATH`. `OPENAI_API_KEY` comes separately from `.env` via `python-dotenv`.
+`src/config.py` is gitignored and must exist before anything imports. It holds plain module-level constants: `TAPO_EMAIL`, `TAPO_PASSWORD`, `KITCHEN_LIGHT_IP`, `BATHROOM_LIGHT_IP`, `LIVING_ROOM_LIGHT_IP`, `VIBE_LIGHT_IP`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_DEVICE_NAME`, `SPEAKERS_MAC_ADDRESS`, `XBOX_CONTROLLER_MAC_ADDRESS`, `PHONE_IP`, `ADB_PORT`, `ADB_PATH`. `OPENAI_API_KEY` comes separately from `.env` via `python-dotenv`, as do the Trello settings: `TRELLO_API_KEY`, `TRELLO_TOKEN`, one of `TRELLO_BOARD_ID` / `TRELLO_BOARD_NAME`, and optionally `TRELLO_DEFAULT_LIST` / `TRELLO_DONE_LIST`. Run `python src/trello_board.py` to print the authorize URL for the token and to list your board ids.
 
 ## Target platform
 

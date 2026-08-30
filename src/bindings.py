@@ -21,6 +21,7 @@ class Action:
     say: object = None   # None: silent, True: say fn's return value, str: say this phrase
     desc: str = None     # None: hidden from voice. str: description shown to the model.
     params: dict = None  # None: takes no arguments. dict: JSON-schema properties the model fills in.
+    required: list = None  # None: every param is required. list: only these are, rest are optional.
 
 
 async def run_action(action: Action, sound, args=None):
@@ -43,7 +44,8 @@ async def run_action(action: Action, sound, args=None):
         print(f"  ⚠ Error: {e}")
 
 
-def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers):
+def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
+                  trello):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -192,6 +194,87 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
             timers.stop_alarm, say="timer_stopped",
             desc="Silence the timer alarm that is currently ringing"),
 
+        # -- trello -------------------------------------------------------
+        # Every one of these speaks its return value: nothing feeds a tool
+        # result back to the model, so the wrapper has to phrase the answer.
+        "create_task": Action(
+            trello.create_task, say=True,
+            desc="Add a task to the Trello board. Only pass list_name if the "
+                 "user named a list, and only pass due if they gave a deadline.",
+            params={
+                "task_name": {
+                    "type": "string",
+                    "description": "What the task is, phrased as a short card title",
+                },
+                "list_name": {
+                    "type": "string",
+                    "description": "The list to add it to, if the user named one",
+                },
+                "due": {
+                    "type": "string",
+                    "description": "Deadline as an ISO 8601 date or date-time, "
+                                   "resolved against today's date",
+                },
+            },
+            required=["task_name"]),
+        "mark_task_completed": Action(
+            trello.mark_as_completed, say=True,
+            desc="Mark a task on the Trello board as done. Pass the task name "
+                 "roughly as the user said it, it is matched loosely.",
+            params={
+                "task_name": {
+                    "type": "string",
+                    "description": "Name of the task to complete",
+                },
+            }),
+        "archive_task": Action(
+            trello.archive, say=True,
+            desc="Archive a task, taking it off the Trello board entirely. Use "
+                 "this only when the user says archive, remove or delete -- use "
+                 "mark_task_completed when they say done or finished.",
+            params={
+                "task_name": {
+                    "type": "string",
+                    "description": "Name of the task to archive",
+                },
+            }),
+        "list_tasks": Action(
+            trello.list_tasks, say=True,
+            desc="Read back the open tasks on the Trello board. Only pass "
+                 "list_name if the user asked about one particular list.",
+            params={
+                "list_name": {
+                    "type": "string",
+                    "description": "Restrict to this list, if the user named one",
+                },
+            },
+            required=[]),
+        "set_task_due_date": Action(
+            trello.set_due_date, say=True,
+            desc="Put a deadline on a task that is already on the Trello board",
+            params={
+                "task_name": {
+                    "type": "string",
+                    "description": "Name of the task to schedule",
+                },
+                "due": {
+                    "type": "string",
+                    "description": "Deadline as an ISO 8601 date or date-time, "
+                                   "resolved against today's date",
+                },
+            }),
+        "list_due_tasks": Action(
+            trello.list_due_tasks, say=True,
+            desc="Report which Trello tasks are due. With no days argument this "
+                 "is today plus anything overdue; pass days=7 for the week ahead.",
+            params={
+                "days": {
+                    "type": "number",
+                    "description": "How many days ahead to look. Omit for today",
+                },
+            },
+            required=[]),
+
         # -- deliberately voice-hidden ------------------------------------
         "exit": Action(sys.exit),
     }
@@ -223,7 +306,8 @@ def build_voice_tools(actions):
                 "parameters": {
                     "type": "object",
                     "properties": action.params or {},
-                    "required": list(action.params or {}),
+                    "required": (list(action.params or {}) if action.required is None
+                                 else action.required),
                 },
             },
         }
