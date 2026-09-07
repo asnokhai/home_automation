@@ -7,7 +7,7 @@ import sys
 
 from sound_player import SoundPlayer
 from spotify_player import SpotifyPlayer
-from voice_assistant import VoiceAssistant
+from voice import VoiceAssistant
 from adb import ADB
 from xbox_controller.xbox_controller import XboxController
 from xbox_controller.xbox_controller_battery import XboxControllerBattery
@@ -50,24 +50,30 @@ async def main():
 
     await tapo.connect_to_lights()
 
+    # Built before the actions, not after: switching voice mode is itself an
+    # action, so the assistant has to exist to be bound to one. It gets the
+    # action table back below.
+    voice = VoiceAssistant(sound)
+
     actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
-                            timers, trello)
+                            timers, trello, voice)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
-    async def on_action(action, args=None):
-        await run_action(action, sound, args)
+    async def on_action(action, args=None, speak=True):
+        return await run_action(action, sound, args, speak)
 
     controller.set_button_maps(button_maps)
     controller.set_action_handler(on_action)
 
-    voice = VoiceAssistant(actions, sound)
+    voice.set_actions(actions)
     voice.set_action_handler(on_action)
 
     print("\nReady!")
     print("  Controller: A=Kitchen  B=Bathroom  X=Living Room  Y=Vibe")
     print("  Controller: RB=All on  LB=All off  Start=Night/Day mode")
     print("  Controller: D-pad up/down = brighter / dimmer")
+    print("  Controller: LJ-down = misc mode, then B = switch voice mode")
     print(f"  Terminal:   {' | '.join(commands.keys())}\n")
 
     try:

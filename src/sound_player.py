@@ -39,6 +39,8 @@ PHRASES = {
     "controller_mode_phone": "Phone Mode",
     "controller_mode_misc": "Miscellaneous Mode",
     "timer_stopped": "Timer stopped",
+    "voice_mode_classic": "Classic voice mode",
+    "voice_mode_realtime": "Realtime voice mode",
 }
 
 class SoundPlayer:

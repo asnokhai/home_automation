@@ -24,28 +24,38 @@ class Action:
     required: list = None  # None: every param is required. list: only these are, rest are optional.
 
 
-async def run_action(action: Action, sound, args=None):
+async def run_action(action: Action, sound, args=None, speak=True):
     """Play the click sound_player, run the bound function, then speak if configured.
 
     `args` carries the arguments the voice model filled in for an Action with
     `params`. Buttons and terminal keywords pass nothing -- their actions are
     already fully bound -- so it defaults to no arguments.
+
+    Returns whatever the function returned. The realtime voice pathway hands
+    that back to the model as the tool result, so it can read out a real battery
+    level or Trello list instead of guessing at one; `speak=False` is there for
+    when the model's own voice should be the only one that answers. Errors come
+    back as a string for the same reason -- silence would leave the model
+    claiming success.
     """
     try:
         sound.play_click()
         result = action.fn(**(args or {}))
         if asyncio.iscoroutine(result):
             result = await result
-        if action.say is True:
-            sound.say(result)
-        elif action.say:
-            sound.say(action.say)
+        if speak:
+            if action.say is True:
+                sound.say(result)
+            elif action.say:
+                sound.say(action.say)
+        return result
     except Exception as e:
         print(f"  ⚠ Error: {e}")
+        return f"Error: {e}"
 
 
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
-                  trello):
+                  trello, voice):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -275,6 +285,24 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
             },
             required=[]),
 
+        # -- voice mode ---------------------------------------------------
+        # say=None on all three: the switch is a request, and the facade plays
+        # the confirmation once the swap has actually happened. Speaking here
+        # would announce a mode that is not live yet.
+        "realtime_voice_mode": Action(
+            voice.use_realtime,
+            desc="Switch the voice assistant to realtime mode, where it holds a "
+                 "live conversation and you can keep talking without repeating "
+                 "the wake word"),
+        "classic_voice_mode": Action(
+            voice.use_classic,
+            desc="Switch the voice assistant back to classic mode, where it "
+                 "answers one request per wake word"),
+        "toggle_voice_mode": Action(
+            voice.toggle_mode,
+            desc="Switch the voice assistant between realtime and classic mode "
+                 "when the user does not say which one they want"),
+
         # -- deliberately voice-hidden ------------------------------------
         "exit": Action(sys.exit),
     }
@@ -291,6 +319,7 @@ def build_command_map(actions):
         "off":              actions["all_off"],
         "lights mode":      actions["night_mode"],
         "toggle pause":     actions["toggle_pause_resume_song"],
+        "voice mode":       actions["toggle_voice_mode"],
         "exit":             actions["exit"],
     }
 
@@ -314,6 +343,16 @@ def build_voice_tools(actions):
         for name, action in actions.items()
         if action.desc
     ]
+
+
+def build_realtime_tools(actions):
+    """Same registry, flat shape.
+
+    The Realtime API puts name/description/parameters directly on the tool
+    rather than under a nested "function" key the way chat completions do.
+    """
+    return [{"type": "function", **tool["function"]}
+            for tool in build_voice_tools(actions)]
 
 
 def build_button_maps(actions):
@@ -364,7 +403,8 @@ def build_button_maps(actions):
             "b": actions["set_alarm"],
         },
         "misc_mode": {
-            "a": actions["stop_timer_alarm"]
+            "a": actions["stop_timer_alarm"],
+            "b": actions["toggle_voice_mode"],
         }
 
     }

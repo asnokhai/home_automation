@@ -1,42 +1,73 @@
-import asyncio, json, socket, subprocess, wave
+"""Turn-based voice: wake word -> record -> Whisper -> chat completion -> TTS.
+
+One request per utterance, no conversation history. Cheap and predictable, and
+the only pathway that works when the network is too slow to hold a websocket
+open. `realtime.py` is the other half; `assistant.py` picks between them.
+"""
+
+import asyncio, json, subprocess, wave
+import os
+import sys
 import traceback
 from datetime import datetime
+
 import numpy as np
 from openai import OpenAI
+from dotenv import load_dotenv
+
+_SRC = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _SRC not in sys.path:
+    sys.path.insert(0, _SRC)
+
 import wakeword
 from bindings import build_voice_tools
-from dotenv import load_dotenv
+
 load_dotenv()
 
-class VoiceAssistant:
-    RATE, FRAME = 16000, 1280          # 80 ms
+
+class ClassicVoiceAssistant:
+    RATE = 16000
     SILENCE_RMS, SILENCE_SEC, MAX_SEC = 500, 1.5, 15
     MAX_ACTIONS = 8                    # per utterance, guards against a runaway fan-out
 
-    def __init__(self, actions, sound, port=5005):
-        self.actions = actions
+    def __init__(self, mic, sound, wake=None):
+        self.mic = mic
         self.sound = sound
         self.client = OpenAI()
-        self.oww, self.wake_keys = wakeword.load_model()   # 'hey jarvis' only
+        # Shared with the other backend: only one runs at a time, and
+        # loading openWakeWord twice on a Pi is a real cost.
+        self.oww, self.wake_keys = wake or wakeword.load_model()
 
-        self.sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        self.sock.bind(('0.0.0.0', port))
-        self.buf = np.zeros(0, dtype=np.int16)
-        self.busy = False
+        self.actions = {}
+        self.tools = []
+        self.handler = None
+        # Set when the facade switches away mid-turn. The blocking half of a
+        # turn runs in an executor thread that outlives the cancelled
+        # coroutine, so it has to check a flag rather than rely on CancelledError.
+        self._stop = False
 
+    def set_actions(self, actions):
+        self.actions = actions
         self.tools = build_voice_tools(actions)
+
+    def set_action_handler(self, handler):
+        self.handler = handler
+
+    def stop(self):
+        self._stop = True
+
+    def reset_stop(self):
+        self._stop = False
 
     # --- audio ---------------------------------------------------------
     def _next_frame(self):
-        while len(self.buf) < self.FRAME:
-            pkt, _ = self.sock.recvfrom(2048)
-            self.buf = np.concatenate([self.buf, np.frombuffer(pkt[4:], dtype='<i2')])
-        f, self.buf = self.buf[:self.FRAME], self.buf[self.FRAME:]
-        return f
+        return self.mic.next_frame()
 
     def _record_until_silence(self):
         frames, quiet = [], 0.0
         while True:
+            if self._stop:
+                return None
             f = self._next_frame()
             frames.append(f)
             rms = np.sqrt(np.mean(f.astype(np.float32) ** 2))
@@ -51,6 +82,8 @@ class VoiceAssistant:
         return path
 
     def _speak(self, text):
+        if self._stop:
+            return
         r = self.client.audio.speech.create(
             model="tts-1", voice="alloy", input=text, response_format="wav")
         with open("out.wav", "wb") as fh:
@@ -60,10 +93,12 @@ class VoiceAssistant:
     # --- one exchange, all blocking; runs in a thread -------------------
     def _listen_and_think(self):
         audio = self._record_until_silence()
+        if audio is None:          # switched modes mid-recording
+            return [], None
         with open(self._save(audio), "rb") as fh:
             text = self.client.audio.transcriptions.create(
                 model="whisper-1", file=fh).text.strip()
-        if not text:
+        if not text or self._stop:
             return [], None
         print(f"  You: {text}")
 
@@ -96,17 +131,15 @@ class VoiceAssistant:
     # --- main loop -----------------------------------------------------
     async def run(self):
         loop = asyncio.get_event_loop()
-        print(f"  Voice: say '{wakeword.WAKEWORD}'")
+        self.oww.reset()
+        print(f"  Voice (turn-based): say '{wakeword.WAKEWORD}'")
         while True:
-            frame = await loop.run_in_executor(None, self._next_frame)
-            if self.busy:
-                continue
+            frame = await self.mic.next_frame_async()
             score = wakeword.score(self.oww.predict(frame), self.wake_keys)
             if score < wakeword.THRESHOLD:
                 continue
 
             self.sound.play_voice_assistant_activated()
-            self.busy = True
             self.oww.reset()
             print(f"  Wake word detected ({score:.2f})")
 
@@ -130,12 +163,12 @@ class VoiceAssistant:
                 if reply:
                     print(f"  Bot: {reply}")
                     await loop.run_in_executor(None, self._speak, reply)
+            except asyncio.CancelledError:
+                raise
             except Exception as e:
                 print(f"  ⚠ Voice error: {e}")
                 traceback.print_exc()
             finally:
-                self.buf = np.zeros(0, dtype=np.int16)   # drop self-heard audio
-                self.busy = False
-
-    def set_action_handler(self, handler):
-        self.handler = handler
+                # Drop whatever piled up while we were busy, including our own
+                # playback picked up by the mic.
+                self.mic.clear()
