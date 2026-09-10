@@ -45,8 +45,8 @@ MODEL = "gpt-realtime"
 VOICE = "alloy"
 API_RATE = 24000              # the Realtime API only speaks pcm16 at 24 kHz
 
-IDLE_TIMEOUT = 45.0           # silence that ends the conversation
-MAX_SESSION = 600.0           # hard cap, so a stuck session cannot bill all night
+IDLE_TIMEOUT = 5.0           # silence that ends the conversation
+MAX_SESSION = 100.0           # hard cap, so a stuck session cannot bill all night
 PLAYBACK_TAIL = 0.3           # extra mute after playback, for room reverb
 MAX_TOOL_ROUNDS = 5           # consecutive tool round-trips before we stop looping
 MAX_ACTIONS = 8               # per response, guards against a runaway fan-out

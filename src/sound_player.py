@@ -41,6 +41,7 @@ PHRASES = {
     "timer_stopped": "Timer stopped",
     "voice_mode_classic": "Classic voice mode",
     "voice_mode_realtime": "Realtime voice mode",
+    "rebooting": "Rebooting",
 }
 
 class SoundPlayer:

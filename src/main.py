@@ -16,6 +16,8 @@ from bluetooth import Bluetooth
 from timers import Timers
 from trello_board import TrelloBoard
 from shopping_list import ShoppingList
+from desktop import DesktopInterface
+from system import System
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -49,6 +51,10 @@ async def main():
     # Same promise as the board above: no session, no login, no network until
     # the first shopping action actually asks for one.
     shopping = ShoppingList()
+    # Nothing to connect to: waking is one broadcast packet, sent on demand.
+    desktop = DesktopInterface()
+    # Takes the SoundPlayer because it has to speak before it reboots.
+    system = System(sound)
 
     print("BATTERY startup probe:", controller_battery.read())
 
@@ -60,7 +66,7 @@ async def main():
     voice = VoiceAssistant(sound)
 
     actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
-                            timers, trello, shopping, voice)
+                            timers, trello, shopping, desktop, system, voice)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 

@@ -55,7 +55,7 @@ async def run_action(action: Action, sound, args=None, speak=True):
 
 
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
-                  trello, shopping, voice):
+                  trello, shopping, desktop, system, voice):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -167,6 +167,25 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
         "set_alarm": Action(
             partial(phone.set_alarm, hour=7, minute=45), say="set_alarm",
             desc="Set an alarm on the phone for 7:45"),
+
+        # -- desktop ------------------------------------------------------
+        # say=True: the packet is fire-and-forget, so the only thing worth
+        # hearing is whether it went out or why it didn't.
+        "wake_desktop": Action(
+            desktop.wakeonlan, say=True,
+            desc="Turn on the desktop PC by waking it over the network"),
+
+        # -- this pi ------------------------------------------------------
+        # say=None because System.reboot speaks for itself: the clip has to
+        # play before the kernel goes down, and run_action only speaks after
+        # the call returns. desc is worded tightly on purpose -- a loose match
+        # here costs the whole assistant, not just a wrong light.
+        "reboot": Action(
+            system.reboot,
+            desc="Reboot the Raspberry Pi that runs this assistant. Only use "
+                 "this when the user clearly asks to reboot or restart the pi "
+                 "or the assistant itself -- it kills everything, including "
+                 "the lights and music control, for about a minute."),
 
         # -- timers -------------------------------------------------------
         "set_timer": Action(
@@ -354,6 +373,8 @@ def build_command_map(actions):
         "toggle pause":     actions["toggle_pause_resume_song"],
         "voice mode":       actions["toggle_voice_mode"],
         "shopping":         actions["list_shopping_items"],
+        "desktop":          actions["wake_desktop"],
+        "reboot":           actions["reboot"],
         "exit":             actions["exit"],
     }
 
@@ -439,6 +460,7 @@ def build_button_maps(actions):
         "misc_mode": {
             "a": actions["stop_timer_alarm"],
             "b": actions["toggle_voice_mode"],
+            "x": actions["wake_desktop"],
         }
 
     }
