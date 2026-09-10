@@ -22,7 +22,7 @@ On the Pi it runs as a systemd user service; `scripts/print_output.sh` tails it:
 journalctl --user -u home_automation.service -f
 ```
 
-`src/config.py` is gitignored and must exist before anything imports. It holds plain module-level constants: `TAPO_EMAIL`, `TAPO_PASSWORD`, `KITCHEN_LIGHT_IP`, `BATHROOM_LIGHT_IP`, `LIVING_ROOM_LIGHT_IP`, `VIBE_LIGHT_IP`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_DEVICE_NAME`, `SPEAKERS_MAC_ADDRESS`, `XBOX_CONTROLLER_MAC_ADDRESS`, `PHONE_IP`, `ADB_PORT`, `ADB_PATH`. `OPENAI_API_KEY` comes separately from `.env` via `python-dotenv`, as do the Trello settings: `TRELLO_API_KEY`, `TRELLO_TOKEN`, one of `TRELLO_BOARD_ID` / `TRELLO_BOARD_NAME`, and optionally `TRELLO_DEFAULT_LIST` / `TRELLO_DONE_LIST`. Run `python src/trello_board.py` to print the authorize URL for the token and to list your board ids.
+`src/config.py` is gitignored and must exist before anything imports. It holds plain module-level constants: `TAPO_EMAIL`, `TAPO_PASSWORD`, `KITCHEN_LIGHT_IP`, `BATHROOM_LIGHT_IP`, `LIVING_ROOM_LIGHT_IP`, `VIBE_LIGHT_IP`, `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, `SPOTIFY_DEVICE_NAME`, `SPEAKERS_MAC_ADDRESS`, `XBOX_CONTROLLER_MAC_ADDRESS`, `PHONE_IP`, `ADB_PORT`, `ADB_PATH`. `OPENAI_API_KEY` comes separately from `.env` via `python-dotenv`, as do the Trello settings: `TRELLO_API_KEY`, `TRELLO_TOKEN`, one of `TRELLO_BOARD_ID` / `TRELLO_BOARD_NAME`, and optionally `TRELLO_DEFAULT_LIST` / `TRELLO_DONE_LIST`. Run `python src/trello_board.py` to print the authorize URL for the token and to list your board ids. The Bring! shopping list needs `BRING_EMAIL` and `BRING_PASSWORD`, plus `BRING_LIST_UUID` (or `BRING_LIST_NAME`) if the account has more than one list; `python src/shopping_list.py` signs in and prints the list uuids.
 
 ## Target platform
 
@@ -64,6 +64,8 @@ Tool results come back to the model as `function_call_output` items sent at `res
 `TapoController` keeps `night_mode` and `brightness` as its own state and re-applies them on every turn-on, since the bulbs do not remember. Every device call goes through `_with_reconnect`, which retries once with a fresh handle because Tapo sessions expire. Brightness changes skip lights that are off — `set_brightness` would otherwise wake them.
 
 `Bluetooth` and `XboxControllerBattery` talk to `org.bluez` over D-Bus with `jeepney` rather than scraping `bluetoothctl`. The controller's battery is on BlueZ's Battery1 interface, not the joystick node, so it reads even when pygame sees no joystick.
+
+`ShoppingList` (`src/shopping_list.py`) talks to Bring! through the unofficial `bring-api` package. It is the one wrapper that is async all the way down -- `TrelloBoard` pushes synchronous `py-trello` into `asyncio.to_thread`, but bring-api is aiohttp-native, so it needs no worker thread. It owns an `aiohttp.ClientSession` built lazily on the running loop, because `Bring.__init__` calls `asyncio.get_running_loop()` and a session belongs to the loop that created it; `main.py` closes it in a `finally`. Items carry a name and a separate `specification` -- the amount has to go in the latter or Bring cannot match the product to its catalogue tile.
 
 `SoundPlayer` pre-generates any missing clip in `PHRASES` with gTTS on first run into `resources/speech/` (gitignored) and can speak arbitrary text via `say_text`, which needs network access.
 

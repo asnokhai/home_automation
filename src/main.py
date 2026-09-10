@@ -15,6 +15,7 @@ from tapo_controller import TapoController
 from bluetooth import Bluetooth
 from timers import Timers
 from trello_board import TrelloBoard
+from shopping_list import ShoppingList
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -45,6 +46,9 @@ async def main():
     # Constructing this touches no network -- the board is fetched on first use,
     # so a missing token or a Trello outage cannot stop the assistant booting.
     trello = TrelloBoard()
+    # Same promise as the board above: no session, no login, no network until
+    # the first shopping action actually asks for one.
+    shopping = ShoppingList()
 
     print("BATTERY startup probe:", controller_battery.read())
 
@@ -56,7 +60,7 @@ async def main():
     voice = VoiceAssistant(sound)
 
     actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
-                            timers, trello, voice)
+                            timers, trello, shopping, voice)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
@@ -85,8 +89,12 @@ async def main():
         )
     except KeyboardInterrupt:
         pass
+    finally:
+        # In a finally, not after the gather: a cancelled task re-raises here,
+        # and aiohttp complains about an unclosed session on the way out.
+        controller.close()
+        await shopping.aclose()
 
-    controller.close()
     print("Done.")
 
 

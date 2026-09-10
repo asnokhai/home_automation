@@ -55,7 +55,7 @@ async def run_action(action: Action, sound, args=None, speak=True):
 
 
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
-                  trello, voice):
+                  trello, shopping, voice):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -210,7 +210,9 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
         "create_task": Action(
             trello.create_task, say=True,
             desc="Add a task to the Trello board. Only pass list_name if the "
-                 "user named a list, and only pass due if they gave a deadline.",
+                 "user named a list, and only pass due if they gave a deadline. "
+                 "Not for groceries or anything to buy at a shop -- those go "
+                 "to add_shopping_item.",
             params={
                 "task_name": {
                     "type": "string",
@@ -251,7 +253,8 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
         "list_tasks": Action(
             trello.list_tasks, say=True,
             desc="Read back the open tasks on the Trello board. Only pass "
-                 "list_name if the user asked about one particular list.",
+                 "list_name if the user asked about one particular list. This "
+                 "is the task board, not the shopping list.",
             params={
                 "list_name": {
                     "type": "string",
@@ -284,6 +287,36 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
                 },
             },
             required=[]),
+
+        # -- shopping list ------------------------------------------------
+        # Worded to stay clear of the Trello block above: the model hears
+        # "put it on the list" for both, so each side has to name the other.
+        "add_shopping_item": Action(
+            shopping.add_item, say=True,
+            desc="Add a grocery or household item to the Bring shopping list. "
+                 "Use this for anything bought at a shop -- food, drink, "
+                 "cleaning supplies -- and for anything the user says to put "
+                 "on the shopping list. Not for to-dos or errands: those are "
+                 "create_task. Keep item_name to the product alone and put "
+                 "any amount in quantity.",
+            params={
+                "item_name": {
+                    "type": "string",
+                    "description": "The product on its own, with no amount in it, "
+                                   "like 'milk' or 'kitchen roll'",
+                },
+                "quantity": {
+                    "type": "string",
+                    "description": "How much or which kind, like 'two litres' or "
+                                   "'the oat one'. Omit if they did not say",
+                },
+            },
+            required=["item_name"]),
+        "list_shopping_items": Action(
+            shopping.list_items, say=True,
+            desc="Read back what is still to buy on the Bring shopping list. "
+                 "Use this for what is on the shopping list or what do we need "
+                 "from the shop. For tasks and chores use list_tasks."),
 
         # -- voice mode ---------------------------------------------------
         # say=None on all three: the switch is a request, and the facade plays
@@ -320,6 +353,7 @@ def build_command_map(actions):
         "lights mode":      actions["night_mode"],
         "toggle pause":     actions["toggle_pause_resume_song"],
         "voice mode":       actions["toggle_voice_mode"],
+        "shopping":         actions["list_shopping_items"],
         "exit":             actions["exit"],
     }
 
