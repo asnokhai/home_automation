@@ -18,6 +18,7 @@ from trello_board import TrelloBoard
 from shopping_list import ShoppingList
 from desktop import DesktopInterface
 from system import System
+from house import House
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -65,8 +66,13 @@ async def main():
     # action table back below.
     voice = VoiceAssistant(sound)
 
+    # After the voice assistant, because standby stops it listening. Building it
+    # touches no network -- the switch is probed by watch() -- so a kitchen bulb
+    # that is off at the wall cannot keep the assistant from booting.
+    house = House(tapo, sound, voice)
+
     actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
-                            timers, trello, shopping, desktop, system, voice)
+                            timers, trello, shopping, desktop, system, voice, house)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
@@ -83,7 +89,8 @@ async def main():
     print("  Controller: A=Kitchen  B=Bathroom  X=Living Room  Y=Vibe")
     print("  Controller: RB=All on  LB=All off  Start=Night/Day mode")
     print("  Controller: D-pad up/down = brighter / dimmer")
-    print("  Controller: LJ-down = misc mode, then B = switch voice mode")
+    print("  Controller: LJ-down = misc mode, then B = switch voice mode, Y = standby")
+    print("  House:      the kitchen wall switch is the master switch")
     print(f"  Terminal:   {' | '.join(commands.keys())}\n")
 
     try:
@@ -92,6 +99,7 @@ async def main():
             stdin_reader(commands, on_action),
             voice.run(),
             phone.watch(),
+            house.watch(),
         )
     except KeyboardInterrupt:
         pass

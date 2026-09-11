@@ -2,6 +2,9 @@ notes.txt
 src/config.py
 resources/speech/
 resources/audio/
+resources/timer_done.wav
+# Generated from the checked-in startup.mp3 on first run.
+resources/startup.wav
 .spotify_token_cache
 arduino_code/wifi_mic_i2s/wifi_mic_i2s.ino
 

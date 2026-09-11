@@ -243,7 +243,11 @@ class RealtimeVoiceAssistant:
         print(f"  Voice (realtime): say '{wakeword.WAKEWORD}'")
         while True:
             frame = await self.mic.next_frame_async()
-            score = wakeword.score(self.oww.predict(frame), self.wake_keys)
+            # In a thread, for the reason spelled out in classic.py: a
+            # synchronous ONNX pass every 80ms on the event loop delays
+            # everything else sharing it, button presses included.
+            score = wakeword.score(
+                await asyncio.to_thread(self.oww.predict, frame), self.wake_keys)
             if score < wakeword.THRESHOLD:
                 continue
 

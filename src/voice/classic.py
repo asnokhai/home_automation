@@ -135,7 +135,12 @@ class ClassicVoiceAssistant:
         print(f"  Voice (turn-based): say '{wakeword.WAKEWORD}'")
         while True:
             frame = await self.mic.next_frame_async()
-            score = wakeword.score(self.oww.predict(frame), self.wake_keys)
+            # In a thread: predict() is a synchronous ONNX forward pass, and on
+            # the loop it ran every 80ms forever -- holding up the controller
+            # poll and every light command with it. Kept separate from
+            # next_frame_async, which has to stay cancellable for mode switches.
+            score = wakeword.score(
+                await asyncio.to_thread(self.oww.predict, frame), self.wake_keys)
             if score < wakeword.THRESHOLD:
                 continue
 

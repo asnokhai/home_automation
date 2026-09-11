@@ -50,6 +50,10 @@ class VoiceAssistant:
 
         self._mode = mode if mode in MODES else CLASSIC
         self._pending = None
+        self._suspended = False
+        # One event for both kinds of change -- a mode switch and a
+        # suspend/resume -- because the supervisor's response to either is the
+        # same: tear the running backend down and look at the flags again.
         self._switch = asyncio.Event()
 
     # --- wiring --------------------------------------------------------
@@ -96,6 +100,33 @@ class VoiceAssistant:
     def use_classic(self):
         return self.set_mode(CLASSIC)
 
+    # --- suspend -------------------------------------------------------
+    @property
+    def suspended(self):
+        return self._suspended
+
+    def suspend(self):
+        """Stop listening entirely until resume().
+
+        A request, not an act, for exactly the reason a mode switch is: this can
+        be called from House while a backend is mid-turn, and the teardown
+        belongs to the supervisor. With the flat empty there is nobody to talk
+        to, and an open realtime session would happily answer the television.
+        """
+        if self._suspended:
+            return "Voice already suspended"
+        self._suspended = True
+        self._switch.set()
+        return "Voice suspended"
+
+    def resume(self):
+        """Start listening again."""
+        if not self._suspended:
+            return "Voice already listening"
+        self._suspended = False
+        self._switch.set()
+        return "Voice resumed"
+
     def _realtime_unavailable(self, reason):
         print(f"  ⚠ Realtime voice unavailable ({reason}) -- falling back")
         self.set_mode(CLASSIC)
@@ -106,6 +137,20 @@ class VoiceAssistant:
         task = waiter = None
         try:
             while True:
+                if self._suspended:
+                    # No backend at all while suspended -- not a paused one.
+                    # The mic thread keeps the UDP port bound and its queue
+                    # bounded, so nothing accumulates with no consumer.
+                    print("  Voice suspended")
+                    self._switch.clear()
+                    await self._switch.wait()
+                    self._switch.clear()
+                    # Drop whatever arrived while nobody was listening, so the
+                    # returning backend does not wake on stale audio.
+                    self.mic.clear()
+                    print(f"  Voice mode: {self._mode}")
+                    continue
+
                 backend = self._backends[self._mode]
                 backend.reset_stop()
                 task = asyncio.create_task(backend.run())
@@ -122,11 +167,22 @@ class VoiceAssistant:
                     task.cancel()
                     await asyncio.wait({task}, timeout=TEARDOWN_TIMEOUT)
                     self.mic.clear()
+                    self._switch.clear()
+
+                    if self._suspended:
+                        # Torn down; the branch at the top of the loop parks
+                        # until someone resumes.
+                        continue
+
+                    previous = self._mode
                     self._mode = self._pending or self._mode
                     self._pending = None
-                    self._switch.clear()
-                    print(f"  Voice mode: {self._mode}")
-                    self.sound.say(f"voice_mode_{self._mode}")
+                    # Only on a real mode change: a resume comes through this
+                    # same event, and announcing the mode then would talk over
+                    # the greeting House has just played.
+                    if self._mode != previous:
+                        print(f"  Voice mode: {self._mode}")
+                        self.sound.say(f"voice_mode_{self._mode}")
                 else:
                     waiter.cancel()
                     exc = task.exception()

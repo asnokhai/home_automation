@@ -18,6 +18,12 @@ import hashlib
 SPEECH_DIR = "./resources/speech"
 ALARM_PATH = "./resources/timer_done.wav"
 
+# The chime House plays when the service starts. Shipped as an mp3 and converted
+# on first run, for the same reason the speech clips are: pygame's mixer wants a
+# wav, and decoding an mp3 on every startup is work that only has to happen once.
+STARTUP_MP3 = "./resources/startup.mp3"
+STARTUP_PATH = "./resources/startup.wav"
+
 PHRASES = {
     "kitchen_on":    "Kitchen on",
     "kitchen_off":   "Kitchen off",
@@ -42,6 +48,8 @@ PHRASES = {
     "voice_mode_classic": "Classic voice mode",
     "voice_mode_realtime": "Realtime voice mode",
     "rebooting": "Rebooting",
+    "welcome_home": "Welcome home",
+    "standby": "Going into standby",
 }
 
 class SoundPlayer:
@@ -50,6 +58,8 @@ class SoundPlayer:
         self._click_sound = pygame.mixer.Sound("./resources/button-click.wav")
         self._voice_assistant_activate_sound = pygame.mixer.Sound("./resources/voice_assistant_activated.wav")
         self._voice_assistant_deactivate_sound = pygame.mixer.Sound("./resources/voice_assistant_deactivated.wav")
+
+        self._startup_sound = self._load_startup()
 
         self._generate_alarm()
         self._alarm_sound = pygame.mixer.Sound(ALARM_PATH)
@@ -90,6 +100,26 @@ class SoundPlayer:
             speech = AudioSegment.from_mp3(mp3_buf)
             speech.export(path, format="wav")
 
+    def _load_startup(self):
+        """Load the startup chime, converting the shipped mp3 on first run.
+
+        Returns None rather than raising if the asset is missing or will not
+        decode: the chime is a nicety, and the assistant booting matters more
+        than announcing that it did.
+        """
+        try:
+            if not os.path.exists(STARTUP_PATH):
+                if not os.path.exists(STARTUP_MP3):
+                    print(f"  ⚠ No startup sound at {STARTUP_MP3}")
+                    return None
+                print("  Converting startup sound to wav")
+                AudioSegment.from_mp3(STARTUP_MP3).export(
+                    STARTUP_PATH, format="wav")
+            return pygame.mixer.Sound(STARTUP_PATH)
+        except Exception as e:
+            print(f"  ⚠ Could not load the startup sound: {e}")
+            return None
+
     def _generate_alarm(self):
         """Synthesize the timer alarm clip on first run, so no asset is needed.
 
@@ -120,6 +150,15 @@ class SoundPlayer:
     def play_click(self):
         """Play the button click sound_player."""
         self._click_sound.play()
+
+    def play_startup(self):
+        """Play the startup chime. Silent if the asset could not be loaded.
+
+        Deliberately not a spoken phrase: House plays this when the service
+        comes back, where a "welcome home" would be a lie -- you never left.
+        """
+        if self._startup_sound:
+            self._startup_sound.play()
 
     def play_voice_assistant_activated(self):
         """Play the activate voice assistant sound_player."""

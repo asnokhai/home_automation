@@ -55,7 +55,7 @@ async def run_action(action: Action, sound, args=None, speak=True):
 
 
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
-                  trello, shopping, desktop, system, voice):
+                  trello, shopping, desktop, system, voice, house):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -174,6 +174,28 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
         "wake_desktop": Action(
             desktop.wakeonlan, say=True,
             desc="Turn on the desktop PC by waking it over the network"),
+
+        # -- the house ----------------------------------------------------
+        # Normally these fire themselves, off the kitchen wall switch. They are
+        # here for the times the switch is not the thing that changed: settling
+        # down for the night without getting up, or telling the house you are
+        # back when it missed the edge.
+        #
+        # say=None on welcome_home because House speaks the greeting itself --
+        # it has to land before the bulbs are waited on, and run_action only
+        # speaks once the call has returned. Same reasoning as reboot above.
+        "welcome_home": Action(
+            house.welcome_home,
+            desc="Wake the house up as if someone just came home: greet them "
+                 "and turn on the kitchen and vibe lights"),
+        "standby": Action(
+            house.standby_now, say="standby",
+            desc="Put the house into standby: turn every light off and stop "
+                 "the voice assistant listening, as when leaving or going to bed"),
+        "house_status": Action(
+            house.status, say=True,
+            desc="Report whether the house is awake or in standby, and whether "
+                 "the kitchen light switch has power"),
 
         # -- this pi ------------------------------------------------------
         # say=None because System.reboot speaks for itself: the clip has to
@@ -374,6 +396,9 @@ def build_command_map(actions):
         "voice mode":       actions["toggle_voice_mode"],
         "shopping":         actions["list_shopping_items"],
         "desktop":          actions["wake_desktop"],
+        "home":             actions["welcome_home"],
+        "standby":          actions["standby"],
+        "house":            actions["house_status"],
         "reboot":           actions["reboot"],
         "exit":             actions["exit"],
     }
@@ -461,6 +486,8 @@ def build_button_maps(actions):
             "a": actions["stop_timer_alarm"],
             "b": actions["toggle_voice_mode"],
             "x": actions["wake_desktop"],
+            # No button for welcome_home: the switch on the wall is that button.
+            "y": actions["standby"],
         }
 
     }

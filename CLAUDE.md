@@ -30,7 +30,9 @@ This runs on a Raspberry Pi under Linux and depends on it: `aplay` for TTS playb
 
 ## Architecture
 
-Three input surfaces — Xbox controller, terminal stdin, and voice — all resolve to the same `Action` objects and run through one handler. `main.py` builds every hardware wrapper, hands them to `bindings.build_actions()`, and runs `controller.run()`, `stdin_reader()`, and `voice.run()` concurrently under `asyncio.gather`.
+Three input surfaces — Xbox controller, terminal stdin, and voice — all resolve to the same `Action` objects and run through one handler. `main.py` builds every hardware wrapper, hands them to `bindings.build_actions()`, and runs `controller.run()`, `stdin_reader()`, and `voice.run()` concurrently under `asyncio.gather`, alongside two background watchers — `phone.watch()` and `house.watch()`. That gather has no `return_exceptions`, so **a watcher that lets an exception escape kills the whole assistant**; both swallow their own, re-raising `CancelledError` so shutdown still works.
+
+A fourth input surface has no code in it at all: the kitchen wall switch. See `House` below.
 
 `src/bindings.py` is the single registry and the file to edit for almost any behaviour change. An `Action` wraps a bound method plus three optional fields:
 
@@ -61,7 +63,33 @@ Tool results come back to the model as `function_call_output` items sent at `res
 
 ### Hardware wrappers
 
-`TapoController` keeps `night_mode` and `brightness` as its own state and re-applies them on every turn-on, since the bulbs do not remember. Every device call goes through `_with_reconnect`, which retries once with a fresh handle because Tapo sessions expire. Brightness changes skip lights that are off — `set_brightness` would otherwise wake them.
+`TapoController` keeps `night_mode` and `brightness` as its own state and re-applies them on every turn-on, since the bulbs do not remember. Every device call goes through `_with_reconnect`. Brightness changes skip lights that are off — `set_brightness` would otherwise wake them.
+
+**Round trips are the latency budget.** One L530 answers in ~320ms, so how a button feels is almost entirely how many requests one press makes. Three rules keep that at one:
+
+- **Batch with the builder.** `device.set().color_temperature(k).brightness(b).send(device)` applies every property in a single request; sending them separately is a round trip each. Note that `brightness`, `color_temperature` and `hue_saturation` all turn the bulb on by themselves unless `.off()` is in the same batch — an explicit `on()` is a wasted request, not a safety net.
+- **Never ask a bulb what it already told us.** `_is_on` caches on/off, warmed by `refresh_states()` at the end of `connect_to_lights()` and updated on every command. It is what lets `toggle` and each brightness step skip a `get_device_info`. It can drift if a light is changed from the Tapo app or at the wall, so `House` refreshes it every `STATE_REFRESH` seconds — off the critical path, and never while a command is in flight. A stale entry is self-correcting.
+- **Bound every call.** `ApiClient` is built with `timeout_s`; its own default is 30s, and with a retry on top one wedged bulb could hold a press for a minute. `_with_reconnect` recovers in two steps — `refresh_session()` first, which is one request, and only then a full `l530()` handshake, which is several.
+
+`test/test_light_latency.py` measures all of this against real bulbs and prints the implied round-trip count; `--probe` runs House's switch probe alongside to reproduce contention.
+
+**`House.watch()` must not probe while `tapo.busy`.** An L530 serves very few concurrent connections to port 80 — often one — and the probe wants the same socket a command needs. Losing that race fails the command, which costs a session refresh or a handshake, and that is how a 0.3s press becomes a multi-second one.
+
+Two more things run on the event loop and must not block it: `run_action` calls `action.fn()` synchronously (so a blocking wrapper freezes the controller poll and every light command with it), and the wake-word `predict()` is a synchronous ONNX pass that goes through `asyncio.to_thread` for the same reason.
+
+Two things in it exist only because a bulb can lose mains power (see `House`). A handle in `_lights` may be `None`: `connect_to_lights` no longer aborts startup when a bulb will not answer, it registers the name and IP and lets `_with_reconnect` build the handle on first use. **The key must stay in `_lights` regardless** — that dict is the canonical list of light names, iterated by every fan-out here and membership-tested by `light_show/player.py`. And a light can be marked unpowered (`mark_unpowered` / `mark_powered` / `is_powered`), after which calls to it raise `LightUnreachable` immediately and the fan-outs skip it: an unpowered bulb is an off bulb. Without that, every call to a dark bulb would wait out a full timeout twice, since nothing refuses the connection and `_with_reconnect` retries. The fan-outs all go through `_fan_out`, which uses `return_exceptions=True` and names what it could not reach, so one bulb off the wifi no longer fails "all off" for the other three.
+
+`House` (`src/house.py`) treats the kitchen light's wall switch as a master switch for the flat. Nothing reports the switch position; the only sensor is whether `KITCHEN_LIGHT_IP` answers a TCP connect on port 80 — which is not a proxy for reachability but the exact transport the Tapo client uses, so a successful connect means the path it needs is open. Going through the Tapo API instead would pay the client's own connect timeout against a dead bulb, twice, inside a loop meant to tick every two seconds.
+
+The debounce is deliberately lopsided. A powered-off bulb never answers (no ARP reply, so the connect hangs to `PROBE_TIMEOUT`), so only a *down* probe costs anything. Going down needs `DOWN_STREAK` agreeing samples, coming up needs one, because nothing else lives at that address.
+
+**Those extra samples are taken back to back, in `_confirm`, not one per poll tick.** Spreading them across ticks put a whole `POLL_INTERVAL` between each one and made leaving the house take the better part of ten seconds to notice — three timeouts and two sleeps. The samples are just as independent taken immediately, and a wall switch does not flicker. What actually makes a short streak safe is the reference-bulb check, not the streak length: if *nothing* answers, that is our wifi rather than their mains, and the state is held.
+
+Welcome home splits the lights by whether they had power all along. The always-powered ones come on immediately; only the ones whose mains just returned wait on `_ensure_api`, which **polls for readiness rather than sleeping** — a bulb accepts TCP well before it will serve a handshake, and a fixed settle paid its full length even when the bulb was ready at once. Holding every light back until the slowest was ready is what made walking in feel slow when half the answer was available instantly.
+
+**A restart is not a homecoming.** The first observation only seeds state — it plays the startup chime (`resources/startup.mp3`, converted to wav on first run), touches no light, and logs what it assumed. Otherwise every `systemctl restart` would greet you for sitting still. Standby turns off every reachable light and suspends the voice assistant; the kitchen bulb is *marked* unpowered rather than commanded, since there is nothing there to answer.
+
+`VoiceAssistant.suspend()` / `.resume()` are requests, not acts, for the same reason `set_mode` is — they may be called while a backend is mid-turn, so the supervisor does the teardown. While suspended no backend runs at all, and a resume comes through the same `_switch` event as a mode change but announces nothing, so it cannot talk over the greeting.
 
 `Bluetooth` and `XboxControllerBattery` talk to `org.bluez` over D-Bus with `jeepney` rather than scraping `bluetoothctl`. The controller's battery is on BlueZ's Battery1 interface, not the joystick node, so it reads even when pygame sees no joystick.
 
@@ -77,6 +105,10 @@ Tool results come back to the model as `function_call_output` items sent at `res
 python test/test_wake.py              # print wake word detections from the UDP stream
 python test/test_controller_battery.py
 python test/test_esp32_wifi.py
+python src/house.py                   # probe the kitchen switch and time its edges
+cd src && python ../test/test_light_latency.py   # how long a light command really takes
 ```
+
+`src/house.py` run directly is a probe-only diagnostic: it builds no `TapoController` and touches no light. Run it on the Pi and flip the kitchen switch — it prints how long each edge actually took, which is how the constants at the top of that file should be chosen rather than by the guesses they currently are.
 
 `src/debug_buttons.py` prints raw pygame button, axis, and hat numbers — use it when controller indices in `XboxController.BUTTON_MAPPING` need remapping.
