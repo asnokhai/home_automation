@@ -55,7 +55,7 @@ async def run_action(action: Action, sound, args=None, speak=True):
 
 
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
-                  trello, shopping, desktop, system, voice, house):
+                  trello, shopping, desktop, tv, system, voice, house):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -174,6 +174,47 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
         "wake_desktop": Action(
             desktop.wakeonlan, say=True,
             desc="Turn on the desktop PC by waking it over the network"),
+
+        # -- tv -----------------------------------------------------------
+        # Canned clips rather than say=True: these have one outcome each, the
+        # clip is already on disk, and run_action returns early on an exception
+        # -- so a phrase here is only ever heard when the frame actually went
+        # out. switch_tv_input keeps say=True because its answer varies.
+        "tv_on": Action(
+            tv.turn_on, say="tv_on",
+            desc="Turn the TV on"),
+        "tv_off": Action(
+            tv.turn_off, say="tv_off",
+            desc="Turn the TV off. Also stops the fireplace if it is playing."),
+        "switch_tv_input": Action(
+            tv.switch_input, say=True,
+            desc="Switch the TV to one of its two inputs: 'dev kit' for the "
+                 "machine this assistant runs on, or 'desktop' for the desktop "
+                 "PC. This only moves the picture -- it does not turn the "
+                 "desktop PC on, which is wake_desktop.",
+            params={
+                "name": {
+                    "type": "string",
+                    "enum": ["dev kit", "desktop"],
+                    "description": "Which input the TV should show",
+                },
+            }),
+        "fireplace_on": Action(
+            tv.show_fireplace, say="fireplace_on",
+            desc="Play the looping fireplace video on the TV. Turns the TV on "
+                 "and switches it to the dev kit first, so it is the only "
+                 "action needed."),
+        "fireplace_off": Action(
+            tv.stop_fireplace, say="fireplace_off",
+            desc="Stop the fireplace video playing on the TV"),
+
+        # The two inputs, pre-bound. Voice-hidden for the same reason the D-pad
+        # favourites are: switch_tv_input already covers both, and buttons and
+        # terminal keywords never pass arguments.
+        "tv_input_devkit": Action(
+            partial(tv.switch_input, "dev kit"), say=True),
+        "tv_input_desktop": Action(
+            partial(tv.switch_input, "desktop"), say=True),
 
         # -- the house ----------------------------------------------------
         # Normally these fire themselves, off the kitchen wall switch. They are
@@ -408,6 +449,13 @@ def build_command_map(actions):
         "voice mode":       actions["toggle_voice_mode"],
         "shopping":         actions["list_shopping_items"],
         "desktop":          actions["wake_desktop"],
+        # All prefixed: "desktop" above is already the PC, not the TV input.
+        "tv":               actions["tv_on"],
+        "tv off":           actions["tv_off"],
+        "tv devkit":        actions["tv_input_devkit"],
+        "tv desktop":       actions["tv_input_desktop"],
+        "fireplace":        actions["fireplace_on"],
+        "fireplace off":    actions["fireplace_off"],
         "home":             actions["welcome_home"],
         "standby":          actions["standby"],
         "house":            actions["house_status"],
@@ -501,6 +549,14 @@ def build_button_maps(actions):
             "x": actions["wake_desktop"],
             # No button for welcome_home: the switch on the wall is that button.
             "y": actions["standby"],
+            # The TV, on everything the four face buttons left free. RB/LB for
+            # the fireplace mirrors lights mode, where RB is on and LB is off.
+            "up":    actions["tv_on"],
+            "down":  actions["tv_off"],
+            "left":  actions["tv_input_devkit"],
+            "right": actions["tv_input_desktop"],
+            "rb":    actions["fireplace_on"],
+            "lb":    actions["fireplace_off"],
         }
 
     }

@@ -26,7 +26,7 @@ journalctl --user -u home_automation.service -f
 
 ## Target platform
 
-This runs on a Raspberry Pi under Linux and depends on it: `aplay` for TTS playback, BlueZ over D-Bus for Bluetooth and controller battery, `adb` for the phone, the `wakeonlan` apt package for waking the desktop, passwordless sudo for `reboot` (run `scripts/allow_reboot.sh` once to grant it -- do not assume the user already has it; `sudo -n` is used so a password prompt fails fast instead of hanging a service with no tty, and `System.reboot` then falls back to a plain `systemctl reboot`, which works only where logind's polkit treats the session as active), ALSA/pygame for audio. Most modules cannot be imported on a Windows dev machine — expect to reason about them statically or test on the Pi. `requirements.txt` has drifted before; treat imports, not that file, as the dependency list. The realtime voice pathway needs `websockets`, which nothing else in the project uses.
+This runs on a Raspberry Pi under Linux and depends on it: `aplay` for TTS playback, BlueZ over D-Bus for Bluetooth and controller battery, `adb` for the phone, the `wakeonlan` apt package for waking the desktop, passwordless sudo for `reboot` (run `scripts/allow_reboot.sh` once to grant it -- do not assume the user already has it; `sudo -n` is used so a password prompt fails fast instead of hanging a service with no tty, and `System.reboot` then falls back to a plain `systemctl reboot`, which works only where logind's polkit treats the session as active), ALSA/pygame for audio, GStreamer with nvidia's `nvoverlaysink` for the fireplace video, and a second passwordless sudo rule for writing CEC frames to `/dev/tegra_cec` (`scripts/allow_cec.sh`, same shape and same reasoning). Video on this box is its own story — no `/dev/dri`, an mpv too old to help, and an Xorg the service cannot reach — told under `TV` below. Most modules cannot be imported on a Windows dev machine — expect to reason about them statically or test on the Pi. `requirements.txt` has drifted before; treat imports, not that file, as the dependency list. The realtime voice pathway needs `websockets`, which nothing else in the project uses.
 
 ## Architecture
 
@@ -95,6 +95,18 @@ Welcome home splits the lights by whether they had power all along. The always-p
 
 `ShoppingList` (`src/shopping_list.py`) talks to Bring! through the unofficial `bring-api` package. It is the one wrapper that is async all the way down -- `TrelloBoard` pushes synchronous `py-trello` into `asyncio.to_thread`, but bring-api is aiohttp-native, so it needs no worker thread. It owns an `aiohttp.ClientSession` built lazily on the running loop, because `Bring.__init__` calls `asyncio.get_running_loop()` and a session belongs to the loop that created it; `main.py` closes it in a `finally`. Items carry a name and a separate `specification` -- the amount has to go in the latter or Bring cannot match the product to its catalogue tile.
 
+`TV` (`src/tv.py`) writes raw HDMI-CEC frames to `/dev/tegra_cec` — a header byte of `(initiator << 4) | destination`, an opcode, then operands. We speak as Playback Device 1, so `40 04` is Image View On, `40 36` is Standby, and `4F 82 n0 00` broadcasts Active Source for the device on HDMI *n*, which is how the TV is told to change input. The write goes through `sudo -n tee /dev/tegra_cec` rather than a redirect inside `sudo sh -c`, because **sudoers matches arguments**: the rule `scripts/allow_cec.sh` installs pins root-write to that one file, where a rule for `sh` would be a rule for a root shell.
+
+Two behaviours in it are not obvious. `switch_input` sends Image View On *before* the Active Source broadcast — a TV in standby ignores Active Source, so without it switching inputs silently does nothing whenever the TV happens to be off, and Image View On is a defined no-op on a set that is already awake. And `turn_off` stops the fireplace first, or the player keeps decoding into a dark panel for as long as the assistant runs. Everything here is one-way: a successful write means the frame reached the bus, never that the TV acted on it, so nothing in this class reports TV state.
+
+The fireplace is **not** mpv, and the reason is worth keeping because the obvious answer fails silently here. This box has no `/dev/dri`, so nothing can draw through DRM; the Xorg it does have will not take a connection from the service; and **mpv's answer to a video output it cannot open is not to exit** — it says so, drops the video and carries on playing the audio. From the code's side that is indistinguishable from success: process alive, speakers crackling, login screen still on the TV. What works is nvidia's `nvoverlaysink`, which draws onto a display plane above X needing no X connection at all, and decodes in hardware — which a 1724x970 60fps file needs.
+
+`PLAYERS` holds full commands rather than mpv flags, tried in order until one is running *and quiet about it*, the winner remembered in `_working_player`. Two traps are baked into the first entry: a hand-built pipeline that links only qtdemux's `video_0` pad plays in perfect silence, so `playbin` does the demuxing and `video-sink=nvoverlaysink` pins only the half that had to be discovered; and **gst-launch plays the file once and exits**, so looping is a `while :; do … || exit 1; done` shell around it. That `|| exit 1` is load-bearing — without it the shell outlives a player that cannot start, respawning it forever, and the start check calls that success. The shell means the child is a process *group*, so `_signal_group` kills the group rather than orphaning the player holding the display.
+
+Everything a player writes goes to a **temp file, not `/dev/null`**, purely so a failure can quote what it said: an exit code alone names nothing, and every failure here looks alike from outside. `show_fireplace` reads that log as well as `poll()`, treating any `VIDEO_FAILED` or `GST_FAILED` marker as failure. The file is deleted after the process is reaped, not before. `test/test_fireplace.py` is the standalone version of this whole search — every candidate, classified as plays / audio-only / pipeline error / died — for when it needs doing again.
+
+Audio goes to the default ALSA device by choice — if spoken replies go quiet while the fire is lit, that is `aplay` failing to open a card the player already holds.
+
 `SoundPlayer` pre-generates any missing clip in `PHRASES` with gTTS on first run into `resources/speech/` (gitignored) and can speak arbitrary text via `say_text`, which needs network access.
 
 ## Tests
@@ -106,6 +118,8 @@ python test/test_wake.py              # print wake word detections from the UDP 
 python test/test_controller_battery.py
 python test/test_esp32_wifi.py
 python src/house.py                   # probe the kitchen switch and time its edges
+python src/tv.py on|off|devkit|desktop|fireplace   # one CEC frame, or the fireplace until Ctrl-C
+python test/test_fireplace.py         # every way of playing the video, scored: plays / audio-only / died
 cd src && python ../test/test_light_latency.py   # how long a light command really takes
 ```
 

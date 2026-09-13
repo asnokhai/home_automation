@@ -17,6 +17,7 @@ from timers import Timers
 from trello_board import TrelloBoard
 from shopping_list import ShoppingList
 from desktop import DesktopInterface
+from tv import TV
 from system import System
 from house import House
 from bindings import build_actions, build_command_map, build_button_maps, run_action
@@ -54,6 +55,9 @@ async def main():
     shopping = ShoppingList()
     # Nothing to connect to: waking is one broadcast packet, sent on demand.
     desktop = DesktopInterface()
+    # Nothing to open either: a TV command is one short write to a character
+    # device, and the fireplace player is spawned only when asked for.
+    tv = TV()
     # Takes the SoundPlayer because it has to speak before it reboots.
     system = System(sound)
 
@@ -72,7 +76,7 @@ async def main():
     house = House(tapo, sound, voice)
 
     actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
-                            timers, trello, shopping, desktop, system, voice, house)
+                            timers, trello, shopping, desktop, tv, system, voice, house)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
@@ -90,6 +94,7 @@ async def main():
     print("  Controller: RB=All on  LB=All off  Start=Night/Day mode")
     print("  Controller: D-pad up/down = brighter / dimmer")
     print("  Controller: LJ-down = misc mode, then B = switch voice mode, Y = standby")
+    print("  Controller: misc mode D-pad = TV on/off and input, RB/LB = fireplace")
     print("  House:      the kitchen wall switch is the master switch")
     print(f"  Terminal:   {' | '.join(commands.keys())}\n")
 
@@ -107,6 +112,9 @@ async def main():
         # In a finally, not after the gather: a cancelled task re-raises here,
         # and aiohttp complains about an unclosed session on the way out.
         controller.close()
+        # Here for the same reason: mpv is our child, so quitting without this
+        # leaves a fireplace burning on a console nobody can get back to.
+        tv.close()
         await shopping.aclose()
 
     print("Done.")

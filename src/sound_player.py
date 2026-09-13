@@ -49,6 +49,10 @@ PHRASES = {
     "voice_mode_realtime": "Realtime voice mode",
     "rebooting": "Rebooting",
     "restarting": "Restarting",
+    "tv_on": "TV on",
+    "tv_off": "TV off",
+    "fireplace_on": "Fireplace on",
+    "fireplace_off": "Fireplace off",
     "welcome_home": "Welcome home",
     "standby": "Going into standby",
 }
