@@ -198,16 +198,28 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
                  "the kitchen light switch has power"),
 
         # -- this pi ------------------------------------------------------
-        # say=None because System.reboot speaks for itself: the clip has to
-        # play before the kernel goes down, and run_action only speaks after
-        # the call returns. desc is worded tightly on purpose -- a loose match
-        # here costs the whole assistant, not just a wrong light.
+        # say=None on both because System speaks for itself: the clip has to
+        # play before the process goes away, and run_action only speaks after
+        # the call returns. The descs are worded tightly on purpose -- a loose
+        # match here costs the whole assistant, not just a wrong light, and
+        # these two are the pair most easily confused for each other. "restart"
+        # in plain speech nearly always means the software, so reboot is scoped
+        # to the machine and restart_service is named as the default.
         "reboot": Action(
             system.reboot,
-            desc="Reboot the Raspberry Pi that runs this assistant. Only use "
-                 "this when the user clearly asks to reboot or restart the pi "
-                 "or the assistant itself -- it kills everything, including "
-                 "the lights and music control, for about a minute."),
+            desc="Reboot the Raspberry Pi that runs this assistant -- the "
+                 "whole machine, power-cycling the operating system. Only use "
+                 "this when the user clearly asks for the pi, the machine or "
+                 "the hardware to be rebooted; it kills everything, including "
+                 "the lights and music control, for about a minute. If they "
+                 "just want the assistant restarted, use restart_service."),
+        "restart_service": Action(
+            system.restart_service,
+            desc="Restart the home assistant software itself, leaving the pi "
+                 "running. Takes a few seconds and is the right choice for "
+                 "'restart yourself', 'restart the assistant' or picking up a "
+                 "change -- prefer it over reboot unless the user explicitly "
+                 "asked for the pi or the machine."),
 
         # -- timers -------------------------------------------------------
         "set_timer": Action(
@@ -400,6 +412,7 @@ def build_command_map(actions):
         "standby":          actions["standby"],
         "house":            actions["house_status"],
         "reboot":           actions["reboot"],
+        "restart":          actions["restart_service"],
         "exit":             actions["exit"],
     }
 

@@ -48,6 +48,7 @@ PHRASES = {
     "voice_mode_classic": "Classic voice mode",
     "voice_mode_realtime": "Realtime voice mode",
     "rebooting": "Rebooting",
+    "restarting": "Restarting",
     "welcome_home": "Welcome home",
     "standby": "Going into standby",
 }
