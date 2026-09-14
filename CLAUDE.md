@@ -91,6 +91,10 @@ Welcome home splits the lights by whether they had power all along. The always-p
 
 `VoiceAssistant.suspend()` / `.resume()` are requests, not acts, for the same reason `set_mode` is — they may be called while a backend is mid-turn, so the supervisor does the teardown. While suspended no backend runs at all, and a resume comes through the same `_switch` event as a mode change but announces nothing, so it cannot talk over the greeting.
 
+`HouseModes` (`src/house_modes.py`) is the themes, kept out of `House` on purpose: House is about one physical fact -- does the kitchen bulb answer -- while a theme is nothing but taste. A theme is a frozen `Theme` value in `THEMES`, so adding one is a constant, a two-line method and a line in `build_actions`. `activate` does three things at once under `return_exceptions=True`, because Spotify being down must not cost you the lights: the theme's lights on and every other powered light off, the theme's song, and the fireplace if it asks for one. `Cozy` is vibe and kitchen at 2500K/25%, "Gravity" by John Mayer, fire on the TV.
+
+Three things in it are load-bearing. The colour and brightness are **written into `TapoController`**, not merely sent, since `turn_on` applies whatever mode the controller holds -- that is both how the theme is painted in one round trip per bulb and how the dimmer buttons afterwards step from the cosy level instead of snapping back. `play_song` goes through `asyncio.to_thread`: spotipy is synchronous and several HTTPS round trips deep, and run inline it would freeze the controller poll and every light command with it. And the confirmation clip is spoken by `HouseModes` itself (so the binding carries `say=None`), for the same reason `House` greets you itself -- `run_action` only speaks once the call returns, and this one waits on a fireplace that takes a second to prove it is playing.
+
 `Bluetooth` and `XboxControllerBattery` talk to `org.bluez` over D-Bus with `jeepney` rather than scraping `bluetoothctl`. The controller's battery is on BlueZ's Battery1 interface, not the joystick node, so it reads even when pygame sees no joystick.
 
 `ShoppingList` (`src/shopping_list.py`) talks to Bring! through the unofficial `bring-api` package. It is the one wrapper that is async all the way down -- `TrelloBoard` pushes synchronous `py-trello` into `asyncio.to_thread`, but bring-api is aiohttp-native, so it needs no worker thread. It owns an `aiohttp.ClientSession` built lazily on the running loop, because `Bring.__init__` calls `asyncio.get_running_loop()` and a session belongs to the loop that created it; `main.py` closes it in a `finally`. Items carry a name and a separate `specification` -- the amount has to go in the latter or Bring cannot match the product to its catalogue tile.
@@ -119,6 +123,7 @@ python test/test_controller_battery.py
 python test/test_esp32_wifi.py
 python src/house.py                   # probe the kitchen switch and time its edges
 python src/tv.py on|off|devkit|desktop|fireplace   # one CEC frame, or the fireplace until Ctrl-C
+cd src && python house_modes.py cozy   # one theme: lights, music and fire, no controller or mic
 python test/test_fireplace.py         # every way of playing the video, scored: plays / audio-only / died
 cd src && python ../test/test_light_latency.py   # how long a light command really takes
 ```

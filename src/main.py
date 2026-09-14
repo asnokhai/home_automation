@@ -20,6 +20,7 @@ from desktop import DesktopInterface
 from tv import TV
 from system import System
 from house import House
+from house_modes import HouseModes
 from bindings import build_actions, build_command_map, build_button_maps, run_action
 
 
@@ -75,8 +76,14 @@ async def main():
     # that is off at the wall cannot keep the assistant from booting.
     house = House(tapo, sound, voice)
 
+    # After the wrappers a theme drives, and given the sound player because
+    # it announces the theme itself rather than waiting for run_action --
+    # the fireplace takes a second to start and the confirmation should not.
+    modes = HouseModes(tapo, spotify, tv, sound)
+
     actions = build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone,
-                            timers, trello, shopping, desktop, tv, system, voice, house)
+                            timers, trello, shopping, desktop, tv, system, voice, house,
+                            modes)
     commands = build_command_map(actions)
     button_maps = build_button_maps(actions)
 
@@ -95,6 +102,7 @@ async def main():
     print("  Controller: D-pad up/down = brighter / dimmer")
     print("  Controller: LJ-down = misc mode, then B = switch voice mode, Y = standby")
     print("  Controller: misc mode D-pad = TV on/off and input, RB/LB = fireplace")
+    print("  Controller: misc mode Start = cozy theme")
     print("  House:      the kitchen wall switch is the master switch")
     print(f"  Terminal:   {' | '.join(commands.keys())}\n")
 

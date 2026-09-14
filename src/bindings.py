@@ -55,7 +55,7 @@ async def run_action(action: Action, sound, args=None, speak=True):
 
 
 def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phone, timers,
-                  trello, shopping, desktop, tv, system, voice, house):
+                  trello, shopping, desktop, tv, system, voice, house, modes):
     """Define every action once, bound directly to its class method."""
     return {
         # -- controller modes: button-only, meaningless by voice ----------
@@ -237,6 +237,19 @@ def build_actions(tapo, controller, controller_battery, spotify, bluetooth, phon
             house.status, say=True,
             desc="Report whether the house is awake or in standby, and whether "
                  "the kitchen light switch has power"),
+
+        # -- themes -------------------------------------------------------
+        # say=None for the same reason welcome_home has it: HouseModes says
+        # the confirmation itself, the moment the theme starts. run_action
+        # only speaks once the call has returned, and this one waits on a
+        # fireplace that takes a second or more to prove it is playing.
+        "cozy_mode": Action(
+            modes.cozy,
+            desc="Set the house to the cozy theme: the vibe and kitchen lights "
+                 "only, very warm and dimmed, 'Gravity' by John Mayer on "
+                 "Spotify, and the fireplace burning on the TV. Use this "
+                 "whenever the user asks to make it cozy, or for a cosy or "
+                 "relaxed mood."),
 
         # -- this pi ------------------------------------------------------
         # say=None on both because System speaks for itself: the clip has to
@@ -459,6 +472,7 @@ def build_command_map(actions):
         "home":             actions["welcome_home"],
         "standby":          actions["standby"],
         "house":            actions["house_status"],
+        "cozy":             actions["cozy_mode"],
         "reboot":           actions["reboot"],
         "restart":          actions["restart_service"],
         "exit":             actions["exit"],
@@ -545,6 +559,9 @@ def build_button_maps(actions):
         },
         "misc_mode": {
             "a": actions["stop_timer_alarm"],
+            # Start was the only face/shoulder button misc mode had left,
+            # and a theme is exactly the kind of thing worth one press.
+            "start": actions["cozy_mode"],
             "b": actions["toggle_voice_mode"],
             "x": actions["wake_desktop"],
             # No button for welcome_home: the switch on the wall is that button.

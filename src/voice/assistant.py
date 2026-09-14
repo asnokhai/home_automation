@@ -37,7 +37,7 @@ TEARDOWN_TIMEOUT = 2.0
 
 
 class VoiceAssistant:
-    def __init__(self, sound, port=5005, mode=CLASSIC):
+    def __init__(self, sound, port=5005, mode=REALTIME):
         self.sound = sound
         self.mic = MicStream(port=port).start()
         wake = wakeword.load_model()      # 'hey jarvis' only, shared by both
@@ -48,7 +48,7 @@ class VoiceAssistant:
         }
         self._backends[REALTIME].on_unavailable = self._realtime_unavailable
 
-        self._mode = mode if mode in MODES else CLASSIC
+        self._mode = mode if mode in MODES else REALTIME
         self._pending = None
         self._suspended = False
         # One event for both kinds of change -- a mode switch and a

@@ -55,6 +55,7 @@ PHRASES = {
     "fireplace_off": "Fireplace off",
     "welcome_home": "Welcome home",
     "standby": "Going into standby",
+    "cozy_mode": "Cozy mode",
 }
 
 class SoundPlayer:

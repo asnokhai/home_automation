@@ -50,6 +50,12 @@ Audio goes to the default ALSA device, which is worth knowing about: while the
 player holds that device, the `aplay` behind every canned clip and spoken reply
 may fail to open the card unless the default is a dmix. If the assistant goes
 quiet whenever the fire is lit, that is this.
+
+How loud the fire is, is a launch-time property of the player and nothing else.
+gst-launch has no runtime interface -- no socket, no ipc -- so changing the
+volume of a fire already burning means starting the player again, which is what
+`set_fireplace_volume` does and why it is not free. The mixer is not an
+alternative: the fire, the spoken replies and Spotify share one card.
 """
 
 from __future__ import annotations
@@ -121,9 +127,13 @@ FIREPLACE_PATH = os.path.join(PROJECT_ROOT, "resources", "videos", "fireplace.mp
 # connects both the picture and the sound itself; `video-sink` pins the half
 # that had to be discovered. A hand-built pipeline linking only the video pad
 # plays in silence, which is the shape of the first attempt at this.
+#
+# `{volume}` is a gstreamer linear gain (1.0 is the file's own level) and
+# `{volume_pct}` is mpv's 0-100. Both are launch-time: see set_fireplace_volume
+# for why that is the whole story on this box.
 PLAYERS = (
     ("playbin", ("gst-launch-1.0", "playbin", "uri=file://{video}",
-                 "video-sink=nvoverlaysink")),
+                 "video-sink=nvoverlaysink", "volume={volume}")),
     # The same thing spelled out, for when playbin chooses something unhelpful.
     # `name=d` is what lets the two branches refer back to the one demuxer.
     ("pipeline", ("gst-launch-1.0", "filesrc", "location={video}", "!",
@@ -131,11 +141,13 @@ PLAYERS = (
                   "d.video_0", "!", "queue", "!", "h264parse", "!",
                   "nvv4l2decoder", "!", "nvoverlaysink",
                   "d.audio_0", "!", "queue", "!", "aacparse", "!", "avdec_aac",
-                  "!", "audioconvert", "!", "audioresample", "!", "alsasink")),
+                  "!", "audioconvert", "!", "audioresample", "!",
+                  "volume", "volume={volume}", "!", "alsasink")),
     # Last, and expected to fail on this machine. It is what starts working if
     # this is ever run somewhere X behaves normally.
     ("mpv", ("mpv", "--vo=x11", "--loop-file=inf", "--fullscreen",
-             "--no-config", "--no-osc", "--no-terminal", "{video}")),
+             "--no-config", "--no-osc", "--no-terminal",
+             "--volume={volume_pct}", "{video}")),
 )
 
 # gst-launch says one of these and can then sit there with a pipeline it never
@@ -162,6 +174,15 @@ VIDEO_FAILED = (
 # check below reads it.
 PLAYER_START_CHECK = 1.0
 PLAYER_STOP_GRACE = 3.0
+
+# How loud the fire crackles, as a percentage of the file's own level. 100 is
+# the level the video was mastered at, which is what this played at before the
+# volume was adjustable -- so the default changes nothing.
+FIREPLACE_VOLUME = 10
+# Coarse on purpose. Every step restarts the player (a second and a black
+# frame), so 5% steps would be twenty restarts to cross the range for a
+# difference nobody can hear.
+FIREPLACE_VOLUME_STEP = 10
 
 # SIGKILL where there is one. Named rather than used inline so this module
 # still imports on a machine that has no such signal.
@@ -206,6 +227,20 @@ def _x_environment() -> dict:
             break
 
     return env
+
+
+def _clamp_volume(percent) -> int:
+    """A volume percentage, forced into 0-100.
+
+    int() rather than round() on purpose: the model filling in a voice
+    parameter can hand over a float, a numeric string, or something that is
+    neither, and a fireplace is not worth raising over.
+    """
+    try:
+        percent = int(float(percent))
+    except (TypeError, ValueError):
+        return FIREPLACE_VOLUME
+    return max(0, min(100, percent))
 
 
 def _tail(path, lines: int = 3) -> str:
@@ -259,7 +294,7 @@ def _terminate(proc, grace: float = PLAYER_STOP_GRACE) -> bool:
 class TV:
     def __init__(self, cec_device: str = CEC_DEVICE, inputs: dict = None,
                  own_input: str = "dev kit", fireplace_path: str = FIREPLACE_PATH,
-                 players=PLAYERS):
+                 fireplace_volume: int = FIREPLACE_VOLUME, players=PLAYERS):
         self.cec_device = cec_device
         self.inputs = dict(inputs or INPUTS)
         if own_input not in self.inputs:
@@ -268,6 +303,9 @@ class TV:
             )
         self.own_input = own_input
         self.fireplace_path = fireplace_path
+        # Read by _spawn, so it applies to the next player started rather than
+        # the one burning now. set_fireplace_volume is what bridges that.
+        self.fireplace_volume = fireplace_volume
         self.players = [(name, list(template)) for name, template in players]
         self._player = None
         # Where mpv's own complaints go. Kept beside the handle because the
@@ -319,21 +357,37 @@ class TV:
 
     # -- the fireplace ----------------------------------------------------
 
-    async def show_fireplace(self) -> str:
+    async def show_fireplace(self, volume=None) -> str:
         """Put the looping fireplace on the TV, turning it on and switching to us.
+
+        `volume` sets the crackle for this showing and every one after it, and
+        is free here because the player is being started anyway -- which is
+        exactly what set_fireplace_volume has to pay for.
+        """
+        if not os.path.exists(self.fireplace_path):
+            raise TVError(f"no fireplace video at {self.fireplace_path}")
+
+        if volume is not None:
+            self.fireplace_volume = _clamp_volume(volume)
+
+        await self.turn_on()
+        await asyncio.sleep(CEC_GAP)
+        await self.switch_input(self.own_input)
+
+        return await self._start_player()
+
+    async def _start_player(self) -> str:
+        """Start the fireplace at the current volume, whatever is playing now.
+
+        Split out of show_fireplace because changing the volume means starting
+        the player again, and a volume change has no business resending CEC
+        frames -- the TV is already on and already showing us.
 
         Tries each entry in `players` until one is running, and quiet about it,
         after PLAYER_START_CHECK. If none is, the error carries what the player
         actually said rather than an exit code -- which is the whole point of
         writing its output to a file instead of /dev/null.
         """
-        if not os.path.exists(self.fireplace_path):
-            raise TVError(f"no fireplace video at {self.fireplace_path}")
-
-        await self.turn_on()
-        await asyncio.sleep(CEC_GAP)
-        await self.switch_input(self.own_input)
-
         await asyncio.to_thread(self._stop_player)
 
         failures = []
@@ -387,6 +441,53 @@ class TV:
         """Stop the fireplace video. Harmless when nothing is playing."""
         stopped = await asyncio.to_thread(self._stop_player)
         return "Fireplace off" if stopped else "The fireplace was not playing"
+
+    # -- how loud the fire is ---------------------------------------------
+
+    def is_fireplace_playing(self) -> bool:
+        """True while a player we started is still alive."""
+        with self._lock:
+            proc = self._player
+        return proc is not None and proc.poll() is None
+
+    async def set_fireplace_volume(self, percent) -> str:
+        """Set how loud the fire crackles, restarting the player if it is lit.
+
+        The restart is not laziness. gst-launch takes its volume as a
+        launch-time property and offers nothing to talk to afterwards -- no
+        socket, no ipc, no signal that means "quieter" -- so on this box the
+        only honest way to change the level of a fire already burning is to
+        start it again. That costs about a second and a black frame, and the
+        loop restarts the clip from the beginning, which on a fireplace is
+        invisible. Changing it while nothing is playing costs nothing at all;
+        the next show_fireplace simply picks it up.
+
+        Deliberately not the ALSA mixer, which would have been free and
+        instant: the fire, every spoken reply and Spotify all come out of the
+        same card, so turning the fire down that way turns the assistant and
+        the music down with it.
+        """
+        self.fireplace_volume = _clamp_volume(percent)
+
+        if self.is_fireplace_playing():
+            # Straight to _start_player: the TV is already on and already on
+            # our input, so the CEC frames show_fireplace sends would be two
+            # pointless writes and a tenth of a second.
+            await self._start_player()
+
+        if self.fireplace_volume == 0:
+            return "Fireplace muted"
+        return f"Fireplace volume {self.fireplace_volume} percent"
+
+    async def increase_fireplace_volume(self) -> str:
+        """Turn the crackle up one step."""
+        return await self.set_fireplace_volume(
+            self.fireplace_volume + FIREPLACE_VOLUME_STEP)
+
+    async def decrease_fireplace_volume(self) -> str:
+        """Turn the crackle down one step."""
+        return await self.set_fireplace_volume(
+            self.fireplace_volume - FIREPLACE_VOLUME_STEP)
 
     def close(self) -> None:
         """Kill the player on the way out. Safe when it never started."""
@@ -469,8 +570,18 @@ class TV:
         would outlive a player that cannot start and would sit there respawning
         it forever, and the start check below would call that success.
         """
-        command = [part.replace("{video}", self.fireplace_path)
-                   for part in template]
+        # Every placeholder in one pass. "{volume}" cannot match inside
+        # "{volume_pct}", so the order of these does not matter.
+        replacements = {
+            "{video}": self.fireplace_path,
+            "{volume}": f"{self.fireplace_volume / 100:.2f}",
+            "{volume_pct}": str(self.fireplace_volume),
+        }
+        command = []
+        for part in template:
+            for token, value in replacements.items():
+                part = part.replace(token, value)
+            command.append(part)
         script = "while :; do %s || exit 1; done" % \
                  " ".join(shlex.quote(part) for part in command)
 
@@ -530,7 +641,7 @@ class TV:
 if __name__ == "__main__":
     import sys
 
-    USAGE = "usage: python tv.py on|off|devkit|desktop|fireplace"
+    USAGE = "usage: python tv.py on|off|devkit|desktop|fireplace [volume 0-100]"
 
     async def _main(argv):
         tv = TV()
@@ -543,7 +654,11 @@ if __name__ == "__main__":
             elif command in ("devkit", "desktop"):
                 print(await tv.switch_input(command))
             elif command == "fireplace":
-                print(await tv.show_fireplace())
+                # `python tv.py fireplace 40` to hear one level without
+                # editing a constant and restarting the service.
+                volume = argv[2] if len(argv) > 2 else None
+                print(await tv.show_fireplace(volume))
+                print(f"Volume: {tv.fireplace_volume}%")
                 print("Ctrl-C to stop it.")
                 while True:
                     await asyncio.sleep(1)
